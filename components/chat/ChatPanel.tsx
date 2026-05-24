@@ -47,9 +47,13 @@ export function ChatPanel() {
             onStop={stopStreaming}
           />
           <p className="mt-2 text-center text-[11px] text-fg-subtle">
-            Helix runs locally. Mock model active — wire a real backend in{" "}
+            Helix proxies to{" "}
             <code className="rounded bg-bg-panel px-1 py-0.5 font-mono text-[10px] text-fg-muted">
-              app/api/chat/route.ts
+              llama.cpp
+            </code>{" "}
+            when available, mock otherwise. Configure via{" "}
+            <code className="rounded bg-bg-panel px-1 py-0.5 font-mono text-[10px] text-fg-muted">
+              .env.local
             </code>
             .
           </p>
