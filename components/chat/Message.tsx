@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { Hexagon, User } from "lucide-react";
 import type { Message as MessageType } from "@/lib/types";
 import { Markdown } from "./Markdown";
+import { ThinkingBlock } from "./ThinkingBlock";
+import { parseStream } from "@/lib/protocol";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -12,17 +14,21 @@ interface Props {
 
 export function Message({ message }: Props) {
   const isUser = message.role === "user";
-  const isPending = message.pending && message.content.length === 0;
+  const parsed = isUser
+    ? { thinking: "", thinkingOpen: false, content: message.content }
+    : parseStream(message.content);
+
+  const isPending =
+    message.pending &&
+    parsed.content.length === 0 &&
+    parsed.thinking.length === 0;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className={cn(
-        "flex gap-3",
-        isUser ? "justify-end" : "justify-start",
-      )}
+      className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}
     >
       {!isUser && (
         <div className="mt-0.5 grid h-7 w-7 flex-shrink-0 place-items-center rounded-md bg-gradient-to-br from-accent to-accent/40 shadow-glow">
@@ -32,20 +38,31 @@ export function Message({ message }: Props) {
 
       <div
         className={cn(
-          "flex min-w-0 max-w-[85%] flex-col gap-1",
+          "flex min-w-0 max-w-[85%] flex-col gap-1.5",
           isUser && "items-end",
         )}
       >
-        <div
-          className={cn(
-            "rounded-2xl px-4 py-2.5 text-[14.5px] leading-relaxed",
-            isUser
-              ? "bg-bg-elevated text-fg"
-              : "bg-transparent text-fg",
-          )}
-        >
-          {isPending ? <ThinkingDots /> : <Markdown content={message.content} />}
-        </div>
+        {!isUser && parsed.thinking && (
+          <ThinkingBlock
+            text={parsed.thinking}
+            streaming={parsed.thinkingOpen}
+          />
+        )}
+
+        {isPending ? (
+          <div className="px-1">
+            <ThinkingDots />
+          </div>
+        ) : parsed.content ? (
+          <div
+            className={cn(
+              "rounded-2xl px-4 py-2.5 text-[14.5px] leading-relaxed",
+              isUser ? "bg-bg-elevated text-fg" : "bg-transparent text-fg",
+            )}
+          >
+            <Markdown content={parsed.content} />
+          </div>
+        ) : null}
       </div>
 
       {isUser && (

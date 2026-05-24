@@ -2,44 +2,41 @@ import type { NextRequest } from "next/server";
 import type { Message } from "@/lib/types";
 
 export const runtime = "edge";
+export const maxDuration = 60;
 
-const LLAMA_BASE_URL = process.env.LLAMA_BASE_URL ?? "http://127.0.0.1:8080";
-const LLAMA_MODEL = process.env.LLAMA_MODEL ?? "helix-local";
+const DEFAULT_BASE_URL = "https://text.pollinations.ai/openai";
+const DEFAULT_MODEL = "openai";
+
+const LLAMA_BASE_URL = (process.env.LLAMA_BASE_URL ?? DEFAULT_BASE_URL).replace(
+  /\/+$/,
+  "",
+);
+const LLAMA_MODEL = process.env.LLAMA_MODEL ?? DEFAULT_MODEL;
 const LLAMA_API_KEY = process.env.LLAMA_API_KEY;
 const LLAMA_TEMPERATURE = Number(process.env.LLAMA_TEMPERATURE ?? "0.7");
-const LLAMA_MAX_TOKENS = Number(process.env.LLAMA_MAX_TOKENS ?? "1024");
+const LLAMA_MAX_TOKENS = Number(process.env.LLAMA_MAX_TOKENS ?? "800");
 const LLAMA_CONNECT_TIMEOUT_MS = Number(
-  process.env.LLAMA_CONNECT_TIMEOUT_MS ?? "2000",
+  process.env.LLAMA_CONNECT_TIMEOUT_MS ?? "5000",
 );
+
+const SYSTEM_PROMPT =
+  process.env.HELIX_SYSTEM_PROMPT ??
+  "You are Helix, a precise and concise assistant. Use Markdown freely (lists, **bold**, fenced code with language tags). Skip filler. When unsure, say so.";
+
+import { THINK_OPEN, THINK_CLOSE } from "@/lib/protocol";
 
 interface ChatRequest {
   messages: Pick<Message, "role" | "content">[];
 }
 
-const CANNED = [
-  "I'm Helix running in **mock mode** — the route tried to reach llama.cpp at `" +
-    LLAMA_BASE_URL +
-    "` and didn't get a response.\n\nStart a llama.cpp server and I'll proxy through automatically:\n\n```bash\nllama-server -m models/qwen2.5-7b-instruct-q4_k_m.gguf --host 127.0.0.1 --port 8080\n```\n\nNo restart of Helix needed — next message will route through.",
-  "Here's the streaming contract Helix consumes:\n\n```ts\nconst res = await fetch('/api/chat', {\n  method: 'POST',\n  body: JSON.stringify({ messages }),\n});\nconst reader = res.body!.getReader();\nconst decoder = new TextDecoder();\nwhile (true) {\n  const { value, done } = await reader.read();\n  if (done) break;\n  appendToAssistant(decoder.decode(value));\n}\n```\n\nThe server emits plain UTF-8 text chunks. When llama.cpp is reachable, its SSE deltas are unwrapped server-side into the same plain-text stream — the client stays identical.",
-  "Drop-in alternatives that speak the same OpenAI-compatible chat-completions protocol:\n\n1. **llama.cpp** (`llama-server`) — default, set `LLAMA_BASE_URL=http://127.0.0.1:8080`\n2. **Ollama** — set `LLAMA_BASE_URL=http://127.0.0.1:11434/v1` and `LLAMA_MODEL=qwen2.5:7b`\n3. **vLLM** — point at `http://your-host:8000`\n4. **TGI** — same shape\n\nAuth: set `LLAMA_API_KEY` for a Bearer token. Tuning: `LLAMA_TEMPERATURE`, `LLAMA_MAX_TOKENS`.",
-];
-
-function pickResponse(prompt: string): string {
-  const p = prompt.toLowerCase();
-  if (p.includes("code") || p.includes("example") || p.includes("```"))
-    return CANNED[1];
-  if (
-    p.includes("model") ||
-    p.includes("ollama") ||
-    p.includes("vllm") ||
-    p.includes("alternative")
-  )
-    return CANNED[2];
-  return CANNED[0];
+interface SseDelta {
+  content?: string;
+  reasoning?: string;
+  reasoning_content?: string;
 }
 
-function chunkText(text: string): string[] {
-  return text.match(/(\s+|[^\s]+)/g) ?? [text];
+interface SseChunk {
+  choices?: Array<{ delta?: SseDelta }>;
 }
 
 export async function POST(req: NextRequest) {
@@ -50,16 +47,21 @@ export async function POST(req: NextRequest) {
     return new Response("invalid json", { status: 400 });
   }
 
-  const llama = await tryLlama(body, req.signal).catch(() => null);
-  if (llama) return llama;
+  const upstream = await tryUpstream(body, req.signal).catch(() => null);
+  if (upstream) return upstream;
   return mockStream(body);
 }
 
-async function tryLlama(
+async function tryUpstream(
   body: ChatRequest,
   clientSignal: AbortSignal,
 ): Promise<Response | null> {
-  const url = `${LLAMA_BASE_URL.replace(/\/+$/, "")}/v1/chat/completions`;
+  const url = `${LLAMA_BASE_URL}/chat/completions`;
+
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...body.messages,
+  ];
 
   const connectAbort = new AbortController();
   const connectTimer = setTimeout(
@@ -80,21 +82,22 @@ async function tryLlama(
       },
       body: JSON.stringify({
         model: LLAMA_MODEL,
-        messages: body.messages,
+        messages,
         stream: true,
         temperature: LLAMA_TEMPERATURE,
         max_tokens: LLAMA_MAX_TOKENS,
       }),
       signal: connectAbort.signal,
     });
-  } finally {
+  } catch {
     clearTimeout(connectTimer);
     clientSignal.removeEventListener("abort", onClientAbort);
-  }
-
-  if (!upstream.ok || !upstream.body) {
     return null;
   }
+  clearTimeout(connectTimer);
+  clientSignal.removeEventListener("abort", onClientAbort);
+
+  if (!upstream.ok || !upstream.body) return null;
 
   const stream = sseToTextStream(upstream.body, clientSignal);
   return new Response(stream, {
@@ -102,7 +105,8 @@ async function tryLlama(
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       "X-Accel-Buffering": "no",
-      "X-Helix-Backend": "llama.cpp",
+      "X-Helix-Backend": new URL(url).host,
+      "X-Helix-Model": LLAMA_MODEL,
     },
   });
 }
@@ -121,6 +125,16 @@ function sseToTextStream(
       clientSignal.addEventListener("abort", onAbort);
 
       let buffer = "";
+      let inThink = false;
+      let sawContent = false;
+
+      const closeThink = () => {
+        if (inThink) {
+          controller.enqueue(encoder.encode(THINK_CLOSE));
+          inThink = false;
+        }
+      };
+
       try {
         while (true) {
           const { value, done } = await reader.read();
@@ -136,31 +150,76 @@ function sseToTextStream(
               const line = rawLine.trimEnd();
               if (!line.startsWith("data:")) continue;
               const payload = line.slice(5).trim();
+              if (!payload) continue;
               if (payload === "[DONE]") {
+                closeThink();
                 controller.close();
                 clientSignal.removeEventListener("abort", onAbort);
                 return;
               }
+              let json: SseChunk;
               try {
-                const json = JSON.parse(payload) as {
-                  choices?: Array<{ delta?: { content?: string } }>;
-                };
-                const token = json.choices?.[0]?.delta?.content;
-                if (token) controller.enqueue(encoder.encode(token));
+                json = JSON.parse(payload) as SseChunk;
               } catch {
-                /* malformed chunk — skip */
+                continue;
+              }
+              const delta = json.choices?.[0]?.delta;
+              if (!delta) continue;
+
+              const reasoning = delta.reasoning ?? delta.reasoning_content;
+              if (reasoning && !sawContent) {
+                if (!inThink) {
+                  controller.enqueue(encoder.encode(THINK_OPEN));
+                  inThink = true;
+                }
+                controller.enqueue(encoder.encode(reasoning));
+              }
+
+              if (delta.content) {
+                closeThink();
+                sawContent = true;
+                controller.enqueue(encoder.encode(delta.content));
               }
             }
           }
         }
+        closeThink();
         controller.close();
       } catch (err) {
+        closeThink();
         controller.error(err);
       } finally {
         clientSignal.removeEventListener("abort", onAbort);
       }
     },
   });
+}
+
+const CANNED = [
+  "I'm Helix in **fallback mode** — the upstream model at `" +
+    LLAMA_BASE_URL +
+    "` didn't respond.\n\n**Default backend:** Pollinations (no key required). If it's down, set `LLAMA_BASE_URL` + `LLAMA_API_KEY` to any OpenAI-compatible endpoint.",
+  "Streaming contract Helix consumes:\n\n```ts\nconst res = await fetch('/api/chat', {\n  method: 'POST',\n  body: JSON.stringify({ messages }),\n});\nconst reader = res.body!.getReader();\nconst decoder = new TextDecoder();\nwhile (true) {\n  const { value, done } = await reader.read();\n  if (done) break;\n  appendToAssistant(decoder.decode(value));\n}\n```\n\nServer unwraps upstream SSE into plain UTF-8 chunks.",
+  "Drop-in OpenAI-compatible backends:\n\n1. **Pollinations** *(default, no key)* — `https://text.pollinations.ai/openai`, model `openai`\n2. **Groq** — `https://api.groq.com/openai/v1`, model `llama-3.3-70b-versatile`, needs `LLAMA_API_KEY`\n3. **llama.cpp local** — `http://127.0.0.1:8080/v1`, run `llama-server -m ...gguf`\n4. **Ollama** — `http://127.0.0.1:11434/v1`, model `qwen2.5:7b`\n5. **DeepSeek** — `https://api.deepseek.com/v1`, model `deepseek-chat`",
+];
+
+function pickResponse(prompt: string): string {
+  const p = prompt.toLowerCase();
+  if (p.includes("code") || p.includes("example") || p.includes("```"))
+    return CANNED[1];
+  if (
+    p.includes("model") ||
+    p.includes("groq") ||
+    p.includes("ollama") ||
+    p.includes("deepseek") ||
+    p.includes("backend")
+  )
+    return CANNED[2];
+  return CANNED[0];
+}
+
+function chunkText(text: string): string[] {
+  return text.match(/(\s+|[^\s]+)/g) ?? [text];
 }
 
 function mockStream(body: ChatRequest): Response {
