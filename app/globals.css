@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    background: hsl(228 14% 6%);
+    color: hsl(220 14% 96%);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  ::selection {
+    background: hsl(258 90% 66% / 0.35);
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: linear-gradient(
+      180deg,
+      hsl(228 14% 12% / 0.6),
+      hsl(228 14% 10% / 0.6)
+    );
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid hsl(228 10% 18% / 0.8);
+  }
+
+  .glass-subtle {
+    background: hsl(228 14% 10% / 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(228 10% 18% / 0.6);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(228 10% 22%) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(228 10% 20%);
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(228 10% 28%);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .bg-grid {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      hsl(220 10% 30% / 0.18) 1px,
+      transparent 0
+    );
+    background-size: 24px 24px;
+  }
+}
+
+/* highlight.js — minimal dark theme tuned for Helix */
+.hljs {
+  color: hsl(220 14% 92%);
+  background: transparent;
+}
+.hljs-comment,
+.hljs-quote {
+  color: hsl(220 8% 48%);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-meta-keyword,
+.hljs-doctag,
+.hljs-section {
+  color: hsl(258 90% 76%);
+}
+.hljs-string,
+.hljs-attr,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+  color: hsl(150 60% 68%);
+}
+.hljs-number,
+.hljs-literal,
+.hljs-built_in {
+  color: hsl(28 90% 70%);
+}
+.hljs-title,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: hsl(196 80% 72%);
+}
+.hljs-type,
+.hljs-class .hljs-title {
+  color: hsl(46 90% 72%);
+}
+.hljs-deletion {
+  color: hsl(0 70% 70%);
+}
