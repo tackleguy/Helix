@@ -6,19 +6,22 @@ import { getApiKey, getModel, type ModelDef } from "@/lib/models";
 export const runtime = "edge";
 export const maxDuration = 60;
 
-const LLAMA_TEMPERATURE = Number(process.env.LLAMA_TEMPERATURE ?? "0.7");
-const LLAMA_MAX_TOKENS = Number(process.env.LLAMA_MAX_TOKENS ?? "800");
+const LLAMA_TEMPERATURE_DEFAULT = Number(process.env.LLAMA_TEMPERATURE ?? "0.7");
+const LLAMA_MAX_TOKENS_DEFAULT = Number(process.env.LLAMA_MAX_TOKENS ?? "800");
 const LLAMA_CONNECT_TIMEOUT_MS = Number(
   process.env.LLAMA_CONNECT_TIMEOUT_MS ?? "5000",
 );
 
-const SYSTEM_PROMPT =
+const SYSTEM_PROMPT_DEFAULT =
   process.env.HELIX_SYSTEM_PROMPT ??
   "You are Helix, a precise and concise assistant. Use Markdown freely (lists, **bold**, fenced code with language tags). Skip filler. When unsure, say so.";
 
 interface ChatRequest {
   messages: Pick<Message, "role" | "content">[];
   modelId?: string;
+  system?: string | null;
+  temperature?: number;
+  max_tokens?: number;
 }
 
 interface SseDelta {
@@ -95,8 +98,19 @@ async function tryUpstream(
   const url = `${baseUrl}/chat/completions`;
   const apiKey = getApiKey(model);
 
+  const systemPrompt =
+    typeof body.system === "string" && body.system.trim()
+      ? body.system.trim()
+      : SYSTEM_PROMPT_DEFAULT;
+  const temperature = clamp(body.temperature ?? LLAMA_TEMPERATURE_DEFAULT, 0, 2);
+  const maxTokens = clampInt(
+    body.max_tokens ?? LLAMA_MAX_TOKENS_DEFAULT,
+    16,
+    8192,
+  );
+
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt },
     ...body.messages,
   ];
 
@@ -121,8 +135,8 @@ async function tryUpstream(
         model: model.backend.upstreamModel,
         messages,
         stream: true,
-        temperature: LLAMA_TEMPERATURE,
-        max_tokens: LLAMA_MAX_TOKENS,
+        temperature,
+        max_tokens: maxTokens,
       }),
       signal: connectAbort.signal,
     });
@@ -234,6 +248,15 @@ function sseToTextStream(
 
 function chunkText(text: string): string[] {
   return text.match(/(\s+|[^\s]+)/g) ?? [text];
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  if (!Number.isFinite(v)) return lo;
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function clampInt(v: number, lo: number, hi: number): number {
+  return Math.round(clamp(v, lo, hi));
 }
 
 function mockNotice(markdown: string): Response {

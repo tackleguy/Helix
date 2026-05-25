@@ -5,8 +5,8 @@
 @layer base {
   html,
   body {
-    background: hsl(228 14% 6%);
-    color: hsl(220 14% 96%);
+    background: hsl(232 22% 5%);
+    color: hsl(220 18% 96%);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -24,24 +24,41 @@
   .glass {
     background: linear-gradient(
       180deg,
-      hsl(228 14% 12% / 0.6),
-      hsl(228 14% 10% / 0.6)
+      hsl(232 18% 13% / 0.7),
+      hsl(232 20% 10% / 0.7)
     );
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid hsl(228 10% 18% / 0.8);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid hsl(232 16% 19% / 0.85);
   }
 
   .glass-subtle {
-    background: hsl(228 14% 10% / 0.5);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid hsl(228 10% 18% / 0.6);
+    background: hsl(232 20% 10% / 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid hsl(232 16% 19% / 0.65);
+  }
+
+  .glass-card {
+    background:
+      radial-gradient(
+        120% 80% at 0% 0%,
+        hsl(258 90% 66% / 0.08),
+        transparent 60%
+      ),
+      linear-gradient(
+        180deg,
+        hsl(232 18% 11% / 0.7),
+        hsl(232 22% 8% / 0.7)
+      );
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid hsl(232 16% 19% / 0.8);
   }
 
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(228 10% 22%) transparent;
+    scrollbar-color: hsl(232 16% 22%) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
@@ -51,11 +68,11 @@
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: hsl(228 10% 20%);
+    background: hsl(232 16% 20%);
     border-radius: 4px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: hsl(228 10% 28%);
+    background: hsl(232 16% 28%);
   }
 
   .text-balance {
@@ -70,6 +87,59 @@
     );
     background-size: 24px 24px;
   }
+
+  .bg-aurora {
+    background:
+      radial-gradient(
+        60% 50% at 20% 0%,
+        hsl(258 90% 60% / 0.18),
+        transparent 60%
+      ),
+      radial-gradient(
+        40% 40% at 80% 30%,
+        hsl(280 80% 60% / 0.12),
+        transparent 60%
+      ),
+      radial-gradient(
+        50% 50% at 50% 110%,
+        hsl(220 80% 60% / 0.10),
+        transparent 60%
+      );
+  }
+}
+
+/* Range slider polish to match the dark glass aesthetic */
+.helix-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: hsl(232 20% 14%);
+  border-radius: 999px;
+  outline: none;
+}
+.helix-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: hsl(258 92% 68%);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px hsl(258 92% 68% / 0.15);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.helix-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+.helix-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: hsl(258 92% 68%);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px hsl(258 92% 68% / 0.15);
+  cursor: pointer;
 }
 
 /* highlight.js — minimal dark theme tuned for Helix */

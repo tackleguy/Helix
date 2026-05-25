@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Trash2, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import {
+  X,
+  Trash2,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Library,
+  ExternalLink,
+} from "lucide-react";
 import { useChat } from "@/lib/chat-store";
+import { getPrompt } from "@/lib/prompts";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -23,7 +33,8 @@ interface ModelsApi {
 }
 
 export function SettingsModal({ open, onClose }: Props) {
-  const { state, clearAll, setModel } = useChat();
+  const { state, clearAll, setModel, setTemperature, setMaxTokens } = useChat();
+  const activePrompt = getPrompt(state.selectedPromptId);
   const [info, setInfo] = useState<ModelsApi | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -178,6 +189,50 @@ export function SettingsModal({ open, onClose }: Props) {
                 )}
               </Section>
 
+              <Section title="Sampling">
+                <div className="space-y-4 rounded-lg border border-line-subtle bg-bg-panel p-3">
+                  <Slider
+                    label="Temperature"
+                    value={state.temperature}
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    onChange={setTemperature}
+                    format={(v) => v.toFixed(2)}
+                    hint="Higher = more creative. 0 is deterministic."
+                  />
+                  <Slider
+                    label="Max tokens"
+                    value={state.maxTokens}
+                    min={64}
+                    max={4096}
+                    step={32}
+                    onChange={setMaxTokens}
+                    format={(v) => v.toString()}
+                    hint="Cap on response length."
+                  />
+                </div>
+              </Section>
+
+              <Section title="System prompt">
+                <Link
+                  href="/prompts"
+                  onClick={onClose}
+                  className="group flex items-start gap-3 rounded-lg border border-line-subtle bg-bg-panel p-3 transition hover:border-line"
+                >
+                  <Library className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-fg">
+                      {activePrompt?.label ?? "—"}
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-[11px] text-fg-subtle">
+                      {activePrompt?.description ?? "Default Helix prompt."}
+                    </p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-fg-subtle transition group-hover:text-fg" />
+                </Link>
+              </Section>
+
               <Section title="Local data">
                 <div className="rounded-lg border border-line-subtle bg-bg-panel p-3">
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -277,6 +332,45 @@ function KbdRow({ keys, label }: { keys: string; label: string }) {
       <kbd className="rounded border border-line-subtle bg-bg-elevated px-1.5 py-0.5 font-mono text-[10px] text-fg-muted">
         {keys}
       </kbd>
+    </div>
+  );
+}
+
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  format,
+  hint,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+  format: (v: number) => string;
+  hint?: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs font-medium text-fg">{label}</span>
+        <span className="font-mono text-[11px] text-accent">{format(value)}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="helix-slider w-full"
+      />
+      {hint && <p className="mt-1 text-[10px] text-fg-subtle">{hint}</p>}
     </div>
   );
 }

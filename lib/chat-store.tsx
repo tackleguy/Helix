@@ -13,12 +13,16 @@ import {
 import type { Conversation, Message } from "./types";
 import { uid } from "./utils";
 import { clearState, loadState, saveState, type PersistedState } from "./persistence";
+import { getPrompt } from "./prompts";
 
 interface State {
   conversations: Conversation[];
   activeId: string | null;
   streaming: boolean;
   selectedModelId: string;
+  selectedPromptId: string;
+  temperature: number;
+  maxTokens: number;
 }
 
 type Action =
@@ -35,6 +39,9 @@ type Action =
     }
   | { type: "set_streaming"; value: boolean }
   | { type: "set_model"; id: string }
+  | { type: "set_prompt"; id: string }
+  | { type: "set_temperature"; value: number }
+  | { type: "set_max_tokens"; value: number }
   | { type: "hydrate"; payload: PersistedState }
   | { type: "clear_all" };
 
@@ -106,22 +113,40 @@ function reducer(state: State, action: Action): State {
       return { ...state, streaming: action.value };
     case "set_model":
       return { ...state, selectedModelId: action.id };
+    case "set_prompt":
+      return { ...state, selectedPromptId: action.id };
+    case "set_temperature":
+      return { ...state, temperature: action.value };
+    case "set_max_tokens":
+      return { ...state, maxTokens: action.value };
     case "hydrate": {
-      const { conversations, activeId, selectedModelId } = action.payload;
+      const {
+        conversations,
+        activeId,
+        selectedModelId,
+        selectedPromptId,
+        temperature,
+        maxTokens,
+      } = action.payload;
       const hasMessages = conversations.some((c) => c.messages.length > 0);
+      const next: State = {
+        ...state,
+        selectedModelId: selectedModelId ?? state.selectedModelId,
+        selectedPromptId: selectedPromptId ?? state.selectedPromptId,
+        temperature: temperature ?? state.temperature,
+        maxTokens: maxTokens ?? state.maxTokens,
+      };
       if (!hasMessages && state.conversations.length > 0) {
-        // Persisted state has nothing useful; keep the in-memory initial chat.
-        return { ...state, selectedModelId };
+        return next;
       }
       const resolvedActive =
         activeId && conversations.some((c) => c.id === activeId)
           ? activeId
           : (conversations[0]?.id ?? null);
       return {
-        ...state,
+        ...next,
         conversations,
         activeId: resolvedActive,
-        selectedModelId,
       };
     }
     case "clear_all": {
@@ -136,6 +161,9 @@ function reducer(state: State, action: Action): State {
 }
 
 const DEFAULT_MODEL_ID = "pollinations";
+const DEFAULT_PROMPT_ID = "helix";
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS = 800;
 
 function initialState(): State {
   const c = newConversation();
@@ -144,6 +172,9 @@ function initialState(): State {
     activeId: c.id,
     streaming: false,
     selectedModelId: DEFAULT_MODEL_ID,
+    selectedPromptId: DEFAULT_PROMPT_ID,
+    temperature: DEFAULT_TEMPERATURE,
+    maxTokens: DEFAULT_MAX_TOKENS,
   };
 }
 
@@ -156,6 +187,9 @@ interface ChatContextValue {
   sendMessage: (content: string) => Promise<void>;
   stopStreaming: () => void;
   setModel: (id: string) => void;
+  setPrompt: (id: string) => void;
+  setTemperature: (v: number) => void;
+  setMaxTokens: (v: number) => void;
   clearAll: () => void;
 }
 
@@ -185,12 +219,22 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         conversations: state.conversations,
         activeId: state.activeId,
         selectedModelId: state.selectedModelId,
+        selectedPromptId: state.selectedPromptId,
+        temperature: state.temperature,
+        maxTokens: state.maxTokens,
       });
     }, 250);
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [state.conversations, state.activeId, state.selectedModelId]);
+  }, [
+    state.conversations,
+    state.activeId,
+    state.selectedModelId,
+    state.selectedPromptId,
+    state.temperature,
+    state.maxTokens,
+  ]);
 
   const activeConversation = useMemo(
     () => state.conversations.find((c) => c.id === state.activeId) ?? null,
@@ -264,12 +308,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }));
         history.push({ role: "user", content: trimmed });
 
+        const promptDef = getPrompt(state.selectedPromptId);
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: history,
             modelId: state.selectedModelId,
+            system: promptDef?.body ?? null,
+            temperature: state.temperature,
+            max_tokens: state.maxTokens,
           }),
           signal: controller.signal,
         });
@@ -316,11 +364,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "set_streaming", value: false });
       }
     },
-    [state.activeId, state.conversations, state.selectedModelId],
+    [
+      state.activeId,
+      state.conversations,
+      state.selectedModelId,
+      state.selectedPromptId,
+      state.temperature,
+      state.maxTokens,
+    ],
   );
 
   const setModel = useCallback(
     (id: string) => dispatch({ type: "set_model", id }),
+    [],
+  );
+  const setPrompt = useCallback(
+    (id: string) => dispatch({ type: "set_prompt", id }),
+    [],
+  );
+  const setTemperature = useCallback(
+    (value: number) => dispatch({ type: "set_temperature", value }),
+    [],
+  );
+  const setMaxTokens = useCallback(
+    (value: number) => dispatch({ type: "set_max_tokens", value }),
     [],
   );
 
@@ -338,6 +405,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     sendMessage,
     stopStreaming,
     setModel,
+    setPrompt,
+    setTemperature,
+    setMaxTokens,
     clearAll,
   };
 

@@ -6,6 +6,9 @@ export interface PersistedState {
   conversations: Conversation[];
   activeId: string | null;
   selectedModelId: string;
+  selectedPromptId?: string;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 const isBrowser = typeof window !== "undefined";

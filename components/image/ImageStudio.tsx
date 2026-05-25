@@ -9,6 +9,10 @@ import {
   Download,
   AlertCircle,
   Trash2,
+  X,
+  Copy,
+  RotateCcw,
+  Check,
 } from "lucide-react";
 import { DockNav } from "@/components/nav/DockNav";
 import {
@@ -60,6 +64,7 @@ function Studio() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<GenerationRecord[]>([]);
+  const [lightbox, setLightbox] = useState<GenerationRecord | null>(null);
   const hydratedRef = useRef(false);
 
   // hydrate from localStorage + prefill prompt from query string
@@ -210,49 +215,193 @@ function Studio() {
       <section className="overflow-y-auto p-6 scrollbar-thin">
         {history.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-fg-subtle">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent/40 shadow-glow">
-              <Sparkles className="h-5 w-5 text-white" />
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent/40 shadow-glow">
+              <Sparkles className="h-6 w-6 text-white" />
             </div>
             <div className="text-sm">
               Generations land here. Type a prompt and hit Generate.
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {history.map((g) => (
-              <motion.figure
+              <GalleryCard
                 key={g.id}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.18 }}
-                className="group overflow-hidden rounded-xl border border-line-subtle bg-bg-panel"
-              >
-                <div className="relative aspect-square w-full overflow-hidden bg-bg-elevated">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={g.url}
-                    alt={g.prompt}
-                    className="h-full w-full object-cover"
-                  />
-                  <a
-                    href={g.url}
-                    download={`helix-${g.id}.png`}
-                    className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-md bg-black/50 text-white opacity-0 backdrop-blur transition group-hover:opacity-100"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </a>
-                </div>
-                <figcaption className="space-y-1 p-3">
-                  <p className="line-clamp-2 text-xs text-fg-muted">{g.prompt}</p>
-                  <p className="font-mono text-[10px] text-fg-subtle">
-                    {g.width}×{g.height} · {g.backend} · {g.duration_ms}ms
-                  </p>
-                </figcaption>
-              </motion.figure>
+                gen={g}
+                onOpen={() => setLightbox(g)}
+                onReuse={() => {
+                  setPrompt(g.prompt);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              />
             ))}
           </div>
         )}
       </section>
+
+      {lightbox && (
+        <Lightbox gen={lightbox} onClose={() => setLightbox(null)} />
+      )}
+    </div>
+  );
+}
+
+function GalleryCard({
+  gen,
+  onOpen,
+  onReuse,
+}: {
+  gen: GenerationRecord;
+  onOpen: () => void;
+  onReuse: () => void;
+}) {
+  return (
+    <motion.figure
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2 }}
+      className="group relative overflow-hidden rounded-2xl border border-line-subtle bg-bg-panel shadow-card"
+    >
+      <button
+        onClick={onOpen}
+        className="relative block aspect-[4/3] w-full overflow-hidden bg-bg-elevated"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={gen.url}
+          alt={gen.prompt}
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/0 opacity-90" />
+      </button>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4">
+        <p className="line-clamp-2 text-[13px] leading-snug text-white drop-shadow">
+          {gen.prompt}
+        </p>
+        <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-white/60">
+          {gen.width}×{gen.height} · {gen.backend} · {gen.duration_ms}ms
+        </p>
+      </div>
+
+      <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+        <IconBtn label="Reuse prompt" onClick={onReuse}>
+          <RotateCcw className="h-3.5 w-3.5" />
+        </IconBtn>
+        <a
+          href={gen.url}
+          download={`helix-${gen.id}.png`}
+          aria-label="Download"
+          className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white backdrop-blur transition hover:bg-black/80"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </a>
+      </div>
+    </motion.figure>
+  );
+}
+
+function IconBtn({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      aria-label={label}
+      title={label}
+      className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white backdrop-blur transition hover:bg-black/80"
+    >
+      {children}
+    </button>
+  );
+}
+
+function Lightbox({
+  gen,
+  onClose,
+}: {
+  gen: GenerationRecord;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(gen.prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-6 backdrop-blur-md"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.16 }}
+        className="relative flex max-h-[90vh] max-w-[92vw] flex-col overflow-hidden rounded-2xl"
+      >
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-md bg-black/60 text-white backdrop-blur transition hover:bg-black/80"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={gen.url}
+          alt={gen.prompt}
+          className="max-h-[80vh] max-w-[92vw] object-contain"
+        />
+
+        <div className="glass px-5 py-3">
+          <div className="flex items-start gap-3">
+            <p className="flex-1 text-sm leading-relaxed text-fg">{gen.prompt}</p>
+            <button
+              onClick={copyPrompt}
+              className="flex items-center gap-1 rounded-md border border-line-subtle px-2 py-1 text-[11px] text-fg-muted transition hover:border-line hover:text-fg"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3 w-3 text-emerald-400" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3 w-3" /> Copy prompt
+                </>
+              )}
+            </button>
+            <a
+              href={gen.url}
+              download={`helix-${gen.id}.png`}
+              className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-white shadow-glow transition hover:bg-accent/90"
+            >
+              <Download className="h-3 w-3" /> Download
+            </a>
+          </div>
+          <p className="mt-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+            {gen.width}×{gen.height} · {gen.backend} · {gen.duration_ms}ms
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 }
