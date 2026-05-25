@@ -1,7 +1,13 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageSquarePlus, Trash2, PanelLeftClose, Hexagon } from "lucide-react";
+import {
+  MessageSquarePlus,
+  Trash2,
+  PanelLeftClose,
+  Hexagon,
+  Eraser,
+} from "lucide-react";
 import { useChat } from "@/lib/chat-store";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +17,7 @@ interface Props {
 }
 
 export function Sidebar({ open, onToggle }: Props) {
-  const { state, newChat, selectChat, deleteChat } = useChat();
+  const { state, newChat, selectChat, deleteChat, clearAll } = useChat();
   const sorted = [...state.conversations].sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
@@ -101,14 +107,30 @@ export function Sidebar({ open, onToggle }: Props) {
           <div className="border-t border-line-subtle px-4 py-3">
             <div className="flex items-center gap-2.5">
               <div className="h-7 w-7 rounded-full bg-gradient-to-br from-accent/80 to-accent/30" />
-              <div className="flex min-w-0 flex-col">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-xs font-medium text-fg">
                   Local user
                 </span>
                 <span className="truncate text-[11px] text-fg-subtle">
-                  Helix • v0.1
+                  Helix • v0.2
                 </span>
               </div>
+              <button
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Delete all conversations? This cannot be undone.",
+                    )
+                  ) {
+                    clearAll();
+                  }
+                }}
+                className="rounded-md p-1.5 text-fg-subtle transition hover:bg-bg-elevated hover:text-red-400"
+                aria-label="Clear all conversations"
+                title="Clear all conversations"
+              >
+                <Eraser className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </motion.aside>

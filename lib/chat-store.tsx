@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
   useRef,
@@ -11,6 +12,7 @@ import {
 } from "react";
 import type { Conversation, Message } from "./types";
 import { uid } from "./utils";
+import { clearState, loadState, saveState, type PersistedState } from "./persistence";
 
 interface State {
   conversations: Conversation[];
@@ -32,7 +34,9 @@ type Action =
       patch: Partial<Message>;
     }
   | { type: "set_streaming"; value: boolean }
-  | { type: "set_model"; id: string };
+  | { type: "set_model"; id: string }
+  | { type: "hydrate"; payload: PersistedState }
+  | { type: "clear_all" };
 
 function newConversation(): Conversation {
   const now = Date.now();
@@ -102,6 +106,32 @@ function reducer(state: State, action: Action): State {
       return { ...state, streaming: action.value };
     case "set_model":
       return { ...state, selectedModelId: action.id };
+    case "hydrate": {
+      const { conversations, activeId, selectedModelId } = action.payload;
+      const hasMessages = conversations.some((c) => c.messages.length > 0);
+      if (!hasMessages && state.conversations.length > 0) {
+        // Persisted state has nothing useful; keep the in-memory initial chat.
+        return { ...state, selectedModelId };
+      }
+      const resolvedActive =
+        activeId && conversations.some((c) => c.id === activeId)
+          ? activeId
+          : (conversations[0]?.id ?? null);
+      return {
+        ...state,
+        conversations,
+        activeId: resolvedActive,
+        selectedModelId,
+      };
+    }
+    case "clear_all": {
+      const c = newConversation();
+      return {
+        ...state,
+        conversations: [c],
+        activeId: c.id,
+      };
+    }
   }
 }
 
@@ -126,6 +156,7 @@ interface ChatContextValue {
   sendMessage: (content: string) => Promise<void>;
   stopStreaming: () => void;
   setModel: (id: string) => void;
+  clearAll: () => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -133,6 +164,33 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const abortRef = useRef<AbortController | null>(null);
+  const hydratedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hydrate from localStorage once on mount (post-SSR so no hydration mismatch).
+  useEffect(() => {
+    const persisted = loadState();
+    if (persisted) {
+      dispatch({ type: "hydrate", payload: persisted });
+    }
+    hydratedRef.current = true;
+  }, []);
+
+  // Persist relevant slices on change, debounced so streaming doesn't thrash.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveState({
+        conversations: state.conversations,
+        activeId: state.activeId,
+        selectedModelId: state.selectedModelId,
+      });
+    }, 250);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [state.conversations, state.activeId, state.selectedModelId]);
 
   const activeConversation = useMemo(
     () => state.conversations.find((c) => c.id === state.activeId) ?? null,
@@ -266,6 +324,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const clearAll = useCallback(() => {
+    clearState();
+    dispatch({ type: "clear_all" });
+  }, []);
+
   const value: ChatContextValue = {
     state,
     activeConversation,
@@ -275,6 +338,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     sendMessage,
     stopStreaming,
     setModel,
+    clearAll,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
