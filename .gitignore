@@ -10,3 +10,10 @@ dist
 next-env.d.ts
 .vercel
 tsconfig.tsbuildinfo
+
+# Python (backend dev)
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+*.egg-info/
