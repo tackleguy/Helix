@@ -1,11 +1,20 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Hexagon, User } from "lucide-react";
+import {
+  Hexagon,
+  User,
+  Volume2,
+  Square,
+  Copy,
+  Check,
+} from "lucide-react";
 import type { Message as MessageType } from "@/lib/types";
 import { Markdown } from "./Markdown";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { parseStream } from "@/lib/protocol";
+import { isTtsSupported, speak, stopSpeaking, type TtsHandle } from "@/lib/tts";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -38,7 +47,7 @@ export function Message({ message }: Props) {
 
       <div
         className={cn(
-          "flex min-w-0 max-w-[85%] flex-col gap-1.5",
+          "group flex min-w-0 max-w-[85%] flex-col gap-1.5",
           isUser && "items-end",
         )}
       >
@@ -54,14 +63,20 @@ export function Message({ message }: Props) {
             <ThinkingDots />
           </div>
         ) : parsed.content ? (
-          <div
-            className={cn(
-              "rounded-2xl px-4 py-2.5 text-[14.5px] leading-relaxed",
-              isUser ? "bg-bg-elevated text-fg" : "bg-transparent text-fg",
+          <>
+            <div
+              className={cn(
+                "rounded-2xl px-4 py-2.5 text-[14.5px] leading-relaxed",
+                isUser ? "bg-bg-elevated text-fg" : "bg-transparent text-fg",
+              )}
+            >
+              <Markdown content={parsed.content} />
+            </div>
+
+            {!isUser && !message.pending && (
+              <MessageActions text={parsed.content} />
             )}
-          >
-            <Markdown content={parsed.content} />
-          </div>
+          </>
         ) : null}
       </div>
 
@@ -71,6 +86,87 @@ export function Message({ message }: Props) {
         </div>
       )}
     </motion.div>
+  );
+}
+
+function MessageActions({ text }: { text: string }) {
+  const [speaking, setSpeaking] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [tts, setTts] = useState(false);
+  const handleRef = useRef<TtsHandle | null>(null);
+
+  useEffect(() => {
+    setTts(isTtsSupported());
+    return () => {
+      handleRef.current?.stop();
+    };
+  }, []);
+
+  const toggleSpeak = () => {
+    if (speaking) {
+      stopSpeaking();
+      setSpeaking(false);
+      handleRef.current = null;
+      return;
+    }
+    const h = speak(text, {
+      onStart: () => setSpeaking(true),
+      onEnd: () => {
+        setSpeaking(false);
+        handleRef.current = null;
+      },
+      onError: () => {
+        setSpeaking(false);
+        handleRef.current = null;
+      },
+    });
+    if (h) handleRef.current = h;
+  };
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1 px-1 opacity-0 transition group-hover:opacity-100">
+      {tts && (
+        <button
+          onClick={toggleSpeak}
+          aria-label={speaking ? "Stop speaking" : "Read aloud"}
+          title={speaking ? "Stop" : "Read aloud"}
+          className={cn(
+            "grid h-6 w-6 place-items-center rounded-md transition",
+            speaking
+              ? "bg-accent text-white"
+              : "text-fg-subtle hover:bg-bg-elevated hover:text-fg",
+          )}
+        >
+          {speaking ? (
+            <Square className="h-3 w-3" fill="currentColor" />
+          ) : (
+            <Volume2 className="h-3 w-3" />
+          )}
+        </button>
+      )}
+      <button
+        onClick={copy}
+        aria-label="Copy message"
+        title="Copy message"
+        className="grid h-6 w-6 place-items-center rounded-md text-fg-subtle transition hover:bg-bg-elevated hover:text-fg"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-400" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </button>
+    </div>
   );
 }
 
