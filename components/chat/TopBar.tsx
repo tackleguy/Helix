@@ -1,15 +1,20 @@
 "use client";
 
-import { PanelLeftOpen } from "lucide-react";
+import { PanelLeftOpen, Settings, Command } from "lucide-react";
 import { useChat } from "@/lib/chat-store";
 import { ModelPicker } from "./ModelPicker";
 
 interface Props {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  onOpenSettings: () => void;
 }
 
-export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
+export function TopBar({
+  sidebarOpen,
+  onToggleSidebar,
+  onOpenSettings,
+}: Props) {
   const { activeConversation } = useChat();
 
   return (
@@ -30,7 +35,31 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
         </span>
       </div>
 
+      <button
+        onClick={() => {
+          const evt = new KeyboardEvent("keydown", {
+            key: "k",
+            metaKey: true,
+            bubbles: true,
+          });
+          document.dispatchEvent(evt);
+        }}
+        className="hidden items-center gap-1.5 rounded-md border border-line-subtle bg-bg-panel px-2 py-1.5 text-[11px] text-fg-subtle transition hover:border-line hover:text-fg sm:flex"
+        aria-label="Command palette"
+      >
+        <Command className="h-3 w-3" />
+        <span>K</span>
+      </button>
+
       <ModelPicker />
+
+      <button
+        onClick={onOpenSettings}
+        className="rounded-md p-1.5 text-fg-subtle transition hover:bg-bg-elevated hover:text-fg"
+        aria-label="Settings"
+      >
+        <Settings className="h-4 w-4" />
+      </button>
     </header>
   );
 }

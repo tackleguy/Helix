@@ -1,0 +1,135 @@
+# Helix full-stack development compose.
+# Brings up: web (Next.js), backend (FastAPI), postgres, redis, chromadb.
+# Optional: comfyui — left commented because it needs ~24 GB models + a GPU.
+#
+# Usage:
+#   docker compose up --build
+#   docker compose down
+#   docker compose logs -f backend
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: helix/web:dev
+    container_name: helix-web
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      HELIX_BACKEND_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - helix-net
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: helix/backend:dev
+    container_name: helix-backend
+    ports:
+      - "8000:8000"
+    environment:
+      HELIX_ENV: prod
+      HELIX_LOG_LEVEL: info
+      HELIX_CORS_ORIGINS: '["http://localhost:3000","http://web:3000"]'
+      HELIX_IMAGE_OUTPUT_DIR: /var/lib/helix/images
+      # HELIX_COMFYUI_URL: http://comfyui:8188
+    volumes:
+      - helix-images:/var/lib/helix/images
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+    networks:
+      - helix-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: helix-postgres
+    environment:
+      POSTGRES_DB: helix
+      POSTGRES_USER: helix
+      POSTGRES_PASSWORD: helix_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - helix-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helix -d helix"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - helix-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: helix-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - helix-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - helix-net
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: helix-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - helix-chroma:/data
+    networks:
+      - helix-net
+    restart: unless-stopped
+
+  # --- Optional GPU services, off by default ---
+  #
+  # comfyui:
+  #   image: ghcr.io/ai-dock/comfyui:latest
+  #   container_name: helix-comfyui
+  #   ports:
+  #     - "8188:8188"
+  #   environment:
+  #     CIVITAI_TOKEN: ""
+  #   volumes:
+  #     - helix-comfyui-models:/opt/ComfyUI/models
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   networks:
+  #     - helix-net
+  #   restart: unless-stopped
+
+volumes:
+  helix-pg:
+  helix-redis:
+  helix-chroma:
+  helix-images:
+  # helix-comfyui-models:
+
+networks:
+  helix-net:
+    driver: bridge
