@@ -47,12 +47,12 @@ export function ChatPanel() {
             onStop={stopStreaming}
           />
           <p className="mt-2 text-center text-[11px] text-fg-subtle">
-            Helix can hallucinate. Default backend: free, public.
-            Override via{" "}
+            Helix can hallucinate. Pick a model from the top-right.
+            Local models need{" "}
             <code className="rounded bg-bg-panel px-1 py-0.5 font-mono text-[10px] text-fg-muted">
-              LLAMA_BASE_URL
+              ./serve.sh
             </code>{" "}
-            for local llama.cpp, Groq, or your own endpoint.
+            running.
           </p>
         </div>
       </div>

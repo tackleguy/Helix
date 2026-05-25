@@ -1,18 +1,11 @@
 import type { NextRequest } from "next/server";
 import type { Message } from "@/lib/types";
+import { THINK_OPEN, THINK_CLOSE } from "@/lib/protocol";
+import { getApiKey, getModel, type ModelDef } from "@/lib/models";
 
 export const runtime = "edge";
 export const maxDuration = 60;
 
-const DEFAULT_BASE_URL = "https://text.pollinations.ai/openai";
-const DEFAULT_MODEL = "openai";
-
-const LLAMA_BASE_URL = (process.env.LLAMA_BASE_URL ?? DEFAULT_BASE_URL).replace(
-  /\/+$/,
-  "",
-);
-const LLAMA_MODEL = process.env.LLAMA_MODEL ?? DEFAULT_MODEL;
-const LLAMA_API_KEY = process.env.LLAMA_API_KEY;
 const LLAMA_TEMPERATURE = Number(process.env.LLAMA_TEMPERATURE ?? "0.7");
 const LLAMA_MAX_TOKENS = Number(process.env.LLAMA_MAX_TOKENS ?? "800");
 const LLAMA_CONNECT_TIMEOUT_MS = Number(
@@ -23,10 +16,9 @@ const SYSTEM_PROMPT =
   process.env.HELIX_SYSTEM_PROMPT ??
   "You are Helix, a precise and concise assistant. Use Markdown freely (lists, **bold**, fenced code with language tags). Skip filler. When unsure, say so.";
 
-import { THINK_OPEN, THINK_CLOSE } from "@/lib/protocol";
-
 interface ChatRequest {
   messages: Pick<Message, "role" | "content">[];
+  modelId?: string;
 }
 
 interface SseDelta {
@@ -47,16 +39,61 @@ export async function POST(req: NextRequest) {
     return new Response("invalid json", { status: 400 });
   }
 
-  const upstream = await tryUpstream(body, req.signal).catch(() => null);
+  const model = getModel(body.modelId);
+
+  if (model.backend.apiKeyEnv && !getApiKey(model)) {
+    return mockNotice(
+      `Model **${model.label}** needs \`${model.backend.apiKeyEnv}\` set in your environment to work. Pick another model from the picker, or set the key and restart.`,
+    );
+  }
+
+  if (model.backend.location === "local") {
+    const loaded = await probeLocalAlias(model.backend.baseUrl);
+    if (loaded === null) {
+      return mockNotice(
+        `Couldn't reach local llama-server at \`${model.backend.baseUrl}\`. Start it with:\n\n\`\`\`bash\n./serve.sh ${model.backend.upstreamModel}\n\`\`\`\n\nOr pick a cloud model from the picker.`,
+      );
+    }
+    if (loaded !== model.backend.upstreamModel) {
+      return mockNotice(
+        `llama-server is currently serving **${loaded}**, but you picked **${model.id}**. Switch with:\n\n\`\`\`bash\n./serve.sh ${model.backend.upstreamModel}\n\`\`\`\n\n(llama-server only loads one model at a time.)`,
+      );
+    }
+  }
+
+  const upstream = await tryUpstream(model, body, req.signal).catch(() => null);
   if (upstream) return upstream;
-  return mockStream(body);
+
+  return mockNotice(
+    `Upstream **${model.label}** didn't respond. Try another model from the picker.`,
+  );
+}
+
+async function probeLocalAlias(baseUrl: string): Promise<string | null> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 700);
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/models`, {
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data?: Array<{ id?: string }> };
+    return json.data?.[0]?.id ?? null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 async function tryUpstream(
+  model: ModelDef,
   body: ChatRequest,
   clientSignal: AbortSignal,
 ): Promise<Response | null> {
-  const url = `${LLAMA_BASE_URL}/chat/completions`;
+  const baseUrl = model.backend.baseUrl.replace(/\/+$/, "");
+  const url = `${baseUrl}/chat/completions`;
+  const apiKey = getApiKey(model);
 
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -78,10 +115,10 @@ async function tryUpstream(
       headers: {
         "Content-Type": "application/json",
         Accept: "text/event-stream",
-        ...(LLAMA_API_KEY ? { Authorization: `Bearer ${LLAMA_API_KEY}` } : {}),
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
       body: JSON.stringify({
-        model: LLAMA_MODEL,
+        model: model.backend.upstreamModel,
         messages,
         stream: true,
         temperature: LLAMA_TEMPERATURE,
@@ -106,7 +143,7 @@ async function tryUpstream(
       "Cache-Control": "no-cache, no-transform",
       "X-Accel-Buffering": "no",
       "X-Helix-Backend": new URL(url).host,
-      "X-Helix-Model": LLAMA_MODEL,
+      "X-Helix-Model": model.id,
     },
   });
 }
@@ -195,49 +232,22 @@ function sseToTextStream(
   });
 }
 
-const CANNED = [
-  "I'm Helix in **fallback mode** — the upstream model at `" +
-    LLAMA_BASE_URL +
-    "` didn't respond.\n\n**Default backend:** Pollinations (no key required). If it's down, set `LLAMA_BASE_URL` + `LLAMA_API_KEY` to any OpenAI-compatible endpoint.",
-  "Streaming contract Helix consumes:\n\n```ts\nconst res = await fetch('/api/chat', {\n  method: 'POST',\n  body: JSON.stringify({ messages }),\n});\nconst reader = res.body!.getReader();\nconst decoder = new TextDecoder();\nwhile (true) {\n  const { value, done } = await reader.read();\n  if (done) break;\n  appendToAssistant(decoder.decode(value));\n}\n```\n\nServer unwraps upstream SSE into plain UTF-8 chunks.",
-  "Drop-in OpenAI-compatible backends:\n\n1. **Pollinations** *(default, no key)* — `https://text.pollinations.ai/openai`, model `openai`\n2. **Groq** — `https://api.groq.com/openai/v1`, model `llama-3.3-70b-versatile`, needs `LLAMA_API_KEY`\n3. **llama.cpp local** — `http://127.0.0.1:8080/v1`, run `llama-server -m ...gguf`\n4. **Ollama** — `http://127.0.0.1:11434/v1`, model `qwen2.5:7b`\n5. **DeepSeek** — `https://api.deepseek.com/v1`, model `deepseek-chat`",
-];
-
-function pickResponse(prompt: string): string {
-  const p = prompt.toLowerCase();
-  if (p.includes("code") || p.includes("example") || p.includes("```"))
-    return CANNED[1];
-  if (
-    p.includes("model") ||
-    p.includes("groq") ||
-    p.includes("ollama") ||
-    p.includes("deepseek") ||
-    p.includes("backend")
-  )
-    return CANNED[2];
-  return CANNED[0];
-}
-
 function chunkText(text: string): string[] {
   return text.match(/(\s+|[^\s]+)/g) ?? [text];
 }
 
-function mockStream(body: ChatRequest): Response {
-  const last = body.messages?.findLast?.((m) => m.role === "user")?.content ?? "";
-  const response = pickResponse(last);
-  const chunks = chunkText(response);
+function mockNotice(markdown: string): Response {
+  const chunks = chunkText(markdown);
   const encoder = new TextEncoder();
-
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       for (const chunk of chunks) {
         controller.enqueue(encoder.encode(chunk));
-        await new Promise((r) => setTimeout(r, 18 + Math.random() * 32));
+        await new Promise((r) => setTimeout(r, 10));
       }
       controller.close();
     },
   });
-
   return new Response(stream, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",

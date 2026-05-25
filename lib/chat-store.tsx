@@ -16,6 +16,7 @@ interface State {
   conversations: Conversation[];
   activeId: string | null;
   streaming: boolean;
+  selectedModelId: string;
 }
 
 type Action =
@@ -30,7 +31,8 @@ type Action =
       messageId: string;
       patch: Partial<Message>;
     }
-  | { type: "set_streaming"; value: boolean };
+  | { type: "set_streaming"; value: boolean }
+  | { type: "set_model"; id: string };
 
 function newConversation(): Conversation {
   const now = Date.now();
@@ -98,12 +100,21 @@ function reducer(state: State, action: Action): State {
       };
     case "set_streaming":
       return { ...state, streaming: action.value };
+    case "set_model":
+      return { ...state, selectedModelId: action.id };
   }
 }
 
+const DEFAULT_MODEL_ID = "pollinations";
+
 function initialState(): State {
   const c = newConversation();
-  return { conversations: [c], activeId: c.id, streaming: false };
+  return {
+    conversations: [c],
+    activeId: c.id,
+    streaming: false,
+    selectedModelId: DEFAULT_MODEL_ID,
+  };
 }
 
 interface ChatContextValue {
@@ -114,6 +125,7 @@ interface ChatContextValue {
   deleteChat: (id: string) => void;
   sendMessage: (content: string) => Promise<void>;
   stopStreaming: () => void;
+  setModel: (id: string) => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -197,7 +209,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history }),
+          body: JSON.stringify({
+            messages: history,
+            modelId: state.selectedModelId,
+          }),
           signal: controller.signal,
         });
 
@@ -243,7 +258,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "set_streaming", value: false });
       }
     },
-    [state.activeId, state.conversations],
+    [state.activeId, state.conversations, state.selectedModelId],
+  );
+
+  const setModel = useCallback(
+    (id: string) => dispatch({ type: "set_model", id }),
+    [],
   );
 
   const value: ChatContextValue = {
@@ -254,6 +274,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     deleteChat,
     sendMessage,
     stopStreaming,
+    setModel,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
