@@ -2,73 +2,65 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
-import "highlight.js/styles/github-dark.css";
-import { CodeBlock } from "./CodeBlock";
+import rehypeShiki from "@shikijs/rehype";
 import type { ComponentPropsWithoutRef } from "react";
+import { CodeBlock } from "./code-block";
 
-interface Props {
+interface MarkdownProps {
   content: string;
 }
 
-export function Markdown({ content }: Props) {
+export function Markdown({ content }: MarkdownProps) {
   return (
-    <div className="prose-helix">
+    <div className="prose-helix text-sm leading-relaxed text-white/85">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]}
+        rehypePlugins={[
+          [
+            rehypeShiki,
+            {
+              theme: "github-dark",
+            },
+          ],
+        ]}
         components={{
-          p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-          a: ({ children, href }) => (
+          p: ({ children }) => (
+            <p className="mb-2.5 last:mb-0">{children}</p>
+          ),
+          a: ({ href, children }) => (
             <a
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent underline decoration-accent/40 underline-offset-2 transition hover:decoration-accent"
+              className="text-helix underline decoration-helix/30 underline-offset-2"
             >
               {children}
             </a>
           ),
           ul: ({ children }) => (
-            <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0">{children}</ul>
+            <ul className="mb-2.5 list-disc space-y-0.5 pl-4">{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>
-          ),
-          li: ({ children }) => <li className="marker:text-fg-subtle">{children}</li>,
-          h1: ({ children }) => (
-            <h1 className="mb-3 mt-4 text-xl font-semibold tracking-tight">{children}</h1>
-          ),
-          h2: ({ children }) => (
-            <h2 className="mb-2 mt-4 text-lg font-semibold tracking-tight">{children}</h2>
-          ),
-          h3: ({ children }) => (
-            <h3 className="mb-2 mt-3 text-base font-semibold tracking-tight">{children}</h3>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote className="my-3 border-l-2 border-line pl-3 text-fg-muted">
+            <ol className="mb-2.5 list-decimal space-y-0.5 pl-4">
               {children}
-            </blockquote>
+            </ol>
           ),
-          hr: () => <hr className="my-4 border-line-subtle" />,
-          strong: ({ children }) => (
-            <strong className="font-semibold text-fg">{children}</strong>
-          ),
-          em: ({ children }) => <em className="italic text-fg-muted">{children}</em>,
           code: CodeRenderer,
           pre: ({ children }) => <>{children}</>,
           table: ({ children }) => (
-            <div className="my-3 overflow-x-auto rounded-md border border-line-subtle">
-              <table className="w-full text-sm">{children}</table>
+            <div className="my-2.5 overflow-x-auto rounded-lg border border-white/[0.06]">
+              <table className="w-full text-xs">{children}</table>
             </div>
           ),
           th: ({ children }) => (
-            <th className="border-b border-line-subtle bg-bg-panel px-3 py-1.5 text-left text-xs font-medium text-fg-muted">
+            <th className="border-b border-white/[0.06] bg-ink-900 px-2.5 py-1.5 text-left font-medium text-white/50">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="border-b border-line-subtle px-3 py-1.5 text-fg">{children}</td>
+            <td className="border-b border-white/[0.06] px-2.5 py-1.5">
+              {children}
+            </td>
           ),
         }}
       >
@@ -78,18 +70,17 @@ export function Markdown({ content }: Props) {
   );
 }
 
-type CodeProps = ComponentPropsWithoutRef<"code"> & {
-  inline?: boolean;
-};
+type CodeProps = ComponentPropsWithoutRef<"code"> & { inline?: boolean };
 
 function CodeRenderer({ inline, className, children, ...rest }: CodeProps) {
   const text = String(children ?? "").replace(/\n$/, "");
-  const isBlock = !inline && (className?.includes("language-") || text.includes("\n"));
+  const isBlock =
+    !inline && (className?.includes("language-") || text.includes("\n"));
 
   if (!isBlock) {
     return (
       <code
-        className="rounded bg-bg-panel px-1.5 py-0.5 font-mono text-[0.85em] text-fg"
+        className="rounded bg-ink-900 px-1 py-0.5 font-mono text-[0.85em] text-helix/90"
         {...rest}
       >
         {children}
@@ -97,9 +88,8 @@ function CodeRenderer({ inline, className, children, ...rest }: CodeProps) {
     );
   }
 
-  const lang = className?.replace("language-", "") ?? "";
   return (
-    <CodeBlock language={lang} code={text}>
+    <CodeBlock code={text}>
       <code className={className} {...rest}>
         {children}
       </code>

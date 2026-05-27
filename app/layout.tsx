@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { ChatProvider } from "@/lib/chat-store";
 
 export const metadata: Metadata = {
   title: "Helix",
@@ -21,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="h-dvh overflow-hidden font-sans antialiased">
-        <ChatProvider>{children}</ChatProvider>
+        {children}
       </body>
     </html>
   );

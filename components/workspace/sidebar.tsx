@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "./workspace-context";
+import { ChatSessionList } from "@/components/chat/session-list";
 
 const NAV = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
@@ -28,6 +29,7 @@ const NAV = [
 export function Sidebar() {
   const pathname = usePathname();
   const { setSidebarOpen } = useWorkspace();
+  const onChat = pathname.startsWith("/chat");
 
   return (
     <aside className="flex h-full w-[220px] flex-col border-r border-white/[0.06] bg-ink-900/90">
@@ -45,7 +47,7 @@ export function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 space-y-0.5 p-2">
+      <nav className="space-y-0.5 p-2">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href || pathname.startsWith(href + "/");
@@ -67,8 +69,10 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-white/[0.06] px-3 py-2.5">
-        <p className="text-[10px] text-white/25">Local-first · v0.4</p>
+      {onChat && <ChatSessionList />}
+
+      <div className="mt-auto border-t border-white/[0.06] px-3 py-2.5">
+        <p className="text-[10px] text-white/25">Local-first · v0.5</p>
       </div>
     </aside>
   );
