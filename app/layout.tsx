@@ -4,11 +4,11 @@ import { ChatProvider } from "@/lib/chat-store";
 
 export const metadata: Metadata = {
   title: "Helix",
-  description: "Local-first AI workspace.",
+  description: "Local-first AI operating system.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d0f14",
+  themeColor: "#08090b",
   width: "device-width",
   initialScale: 1,
 };

@@ -52,6 +52,8 @@ const config: Config = {
         display: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
       boxShadow: {
+        "helix-glow":
+          "0 0 0 1px rgba(94, 234, 212, 0.35), 0 4px 16px -4px rgba(94, 234, 212, 0.25)",
         glow: "0 0 0 1px hsl(258 90% 66% / 0.4), 0 8px 32px -8px hsl(258 90% 66% / 0.35)",
         "glow-soft": "0 0 30px -10px hsl(258 90% 66% / 0.4)",
         panel:

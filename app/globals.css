@@ -16,7 +16,7 @@
   }
 
   ::selection {
-    background: hsl(258 90% 66% / 0.35);
+    background: rgba(94, 234, 212, 0.25);
   }
 }
 
@@ -93,6 +93,17 @@
     font-style: italic;
   }
 
+  .prose-helix {
+    max-width: none;
+  }
+  .prose-helix pre {
+    margin: 0;
+    background: transparent;
+  }
+  .prose-helix pre code.hljs {
+    background: transparent;
+  }
+
   .bg-aurora {
     background:
       radial-gradient(
@@ -147,10 +158,10 @@
   cursor: pointer;
 }
 
-/* highlight.js — minimal dark theme tuned for Helix */
+/* highlight.js — github-dark tuned for ink-900 panels */
 .hljs {
   color: hsl(220 14% 92%);
-  background: transparent;
+  background: #121418;
 }
 .hljs-comment,
 .hljs-quote {
