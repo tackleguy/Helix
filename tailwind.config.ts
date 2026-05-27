@@ -6,6 +6,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        ink: {
+          900: "#121418",
+          850: "#1a1c22",
+          800: "#22252b",
+        },
+        helix: {
+          DEFAULT: "#5eead4",
+          glow: "rgba(94, 234, 212, 0.35)",
+          deep: "#2dd4bf",
+        },
         bg: {
           DEFAULT: "hsl(232 22% 5%)",
           subtle: "hsl(232 22% 7%)",

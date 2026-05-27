@@ -5,7 +5,7 @@
 @layer base {
   html,
   body {
-    background: hsl(232 22% 5%);
+    background: #08090b;
     color: hsl(220 18% 96%);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -86,6 +86,11 @@
       transparent 0
     );
     background-size: 24px 24px;
+  }
+
+  .wordmark {
+    font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+    font-style: italic;
   }
 
   .bg-aurora {
