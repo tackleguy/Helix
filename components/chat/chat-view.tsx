@@ -147,11 +147,15 @@ export function ChatView({ sessionId }: ChatViewProps) {
         }
       }
 
-      await load();
+      if (!window.location.hostname.includes("vercel.app")) {
+        await load();
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Chat failed");
-      await load();
+      if (!window.location.hostname.includes("vercel.app")) {
+        await load();
+      }
     } finally {
       setStreaming(false);
       abortRef.current = null;

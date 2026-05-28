@@ -16,8 +16,9 @@ import {
 } from "@/lib/chat/repository";
 import { streamChat } from "@/lib/chat/stream";
 import { estimateTokens } from "@/lib/chat/tokens";
-import { isCloudOnlyDeploy } from "@/lib/env";
+import { isCloudOnlyDeploy, hasCloudChat } from "@/lib/env";
 import { loadAppSettings } from "@/lib/settings";
+import { uid } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,74 @@ export const maxDuration = 60;
 function titleFromFirstMessage(text: string) {
   const t = text.trim();
   return t.length > 40 ? t.slice(0, 40) + "…" : t;
+}
+
+async function handleStatelessCloudChat({
+  message,
+  attachments,
+}: {
+  message?: string;
+  attachments?: z.infer<typeof ChatRequestSchema>["attachments"];
+}) {
+  const hasPayload =
+    (message !== undefined && message.trim().length > 0) ||
+    (attachments !== undefined && attachments.length > 0);
+  if (!hasPayload) {
+    return apiError("empty message", 400, "EMPTY_MESSAGE");
+  }
+
+  const processed = attachments?.length ? await processAttachments(attachments) : [];
+  const content = buildUserContent(message ?? "", processed);
+  const assistantId = uid();
+
+  const { result, backend, model } = await streamChat({
+    messages: [{ role: "user", content }],
+  });
+
+  const encoder = new TextEncoder();
+  let acc = "";
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: "meta", assistantId, backend: backend.id, model })}\n\n`,
+        ),
+      );
+      try {
+        for await (const chunk of result.textStream) {
+          acc += chunk;
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "delta", text: chunk })}\n\n`,
+            ),
+          );
+        }
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "done", tokensOut: estimateTokens(acc) })}\n\n`,
+          ),
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "stream failed";
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "error", error: msg })}\n\n`,
+          ),
+        );
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }
 
 export async function POST(req: Request) {
@@ -41,16 +110,22 @@ export async function POST(req: Request) {
     editLastUser,
   } = parsed.data;
 
-  try {
-    const session = getSessionOrThrow(sessionId);
-
-    if (isCloudOnlyDeploy() && !regenerate && !shouldContinue && editLastUser === undefined) {
+  if (isCloudOnlyDeploy()) {
+    if (!hasCloudChat()) {
       return apiError(
-        "Chat on helix.vercel.app cannot reach local models on your machine. Run Helix locally (npm run dev) with Ollama or LM Studio, or add OPENAI_API_KEY in Vercel project settings for cloud chat.",
+        "Helix on Vercel cannot reach Ollama or LM Studio on your computer. Run `npm run dev` locally for local models, or add OPENAI_API_KEY in Vercel → Project → Settings → Environment Variables for cloud chat.",
         503,
         "CLOUD_NO_BACKEND",
       );
     }
+    return handleStatelessCloudChat({
+      message,
+      attachments,
+    });
+  }
+
+  try {
+    const session = getSessionOrThrow(sessionId);
 
     let history = getMessages(sessionId);
     const isFirstExchange = history.length === 0;
