@@ -89,7 +89,7 @@
   }
 
   .wordmark {
-    font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif), Georgia, "Times New Roman", serif;
     font-style: italic;
   }
 

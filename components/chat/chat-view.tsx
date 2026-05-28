@@ -6,6 +6,8 @@ import { Composer, type ComposerAttachment } from "./composer";
 import { Message } from "./message";
 import { ChatHeader } from "./chat-header";
 import { SystemPromptPanel } from "./system-prompt-panel";
+import { ServicesBanner } from "./services-banner";
+import { TopBar } from "@/components/workspace/layout";
 import type { ChatMessageDto, SessionDto } from "@/lib/chat/types";
 
 interface ChatViewProps {
@@ -183,18 +185,30 @@ export function ChatView({ sessionId }: ChatViewProps) {
     await load();
   };
 
+  const saveModel = async (modelId: string) => {
+    await fetch(`/api/chat/sessions/${sessionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: modelId }),
+    });
+    setSession((s) => (s ? { ...s, model: modelId } : s));
+  };
+
   const lastAssistantId = [...messages]
     .reverse()
     .find((m) => m.role === "assistant")?.id;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <TopBar />
+      <ServicesBanner />
       <ChatHeader
         title={session?.title ?? "Chat"}
         model={session?.model ?? null}
         backend={backend}
         messages={messages}
         onOpenSystemPrompt={() => setPromptOpen(true)}
+        onModelChange={(modelId) => void saveModel(modelId)}
       />
 
       <div
@@ -207,6 +221,10 @@ export function ChatView({ sessionId }: ChatViewProps) {
               <h2 className="wordmark text-3xl text-white/75">Helix</h2>
               <p className="mt-2 text-sm text-white/35">
                 Local models · streaming · your data stays on device
+              </p>
+              <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-white/30">
+                Start Ollama, LM Studio, or llama-server on this machine, then
+                pick a model above. Helix never sends your data to the cloud.
               </p>
             </div>
           )}

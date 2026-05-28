@@ -17,10 +17,12 @@ export function ChatSessionList() {
   const pathname = usePathname();
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/chat/sessions", { cache: "no-store" });
     if (res.ok) {
+      setLoadError(false);
       const data = (await res.json()) as {
         sessions: Array<{ id: string; title: string; updatedAt: string | Date }>;
       };
@@ -31,6 +33,8 @@ export function ChatSessionList() {
           updatedAt: new Date(s.updatedAt).getTime(),
         })),
       );
+    } else {
+      setLoadError(true);
     }
   }, []);
 
@@ -117,7 +121,11 @@ export function ChatSessionList() {
       </button>
 
       <div className="max-h-[40vh] overflow-y-auto scrollbar-thin">
-        {grouped.length === 0 ? (
+        {loadError ? (
+          <p className="px-2 py-3 text-[11px] text-red-300/80">
+            Could not load chats. Reload the page or check the server log.
+          </p>
+        ) : grouped.length === 0 ? (
           <p className="px-2 py-3 text-[11px] text-white/25">No chats yet</p>
         ) : (
           grouped.map(([bucket, items]) => (

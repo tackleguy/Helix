@@ -172,16 +172,68 @@ function ModelsTab({
   const [chat, setChat] = useState(app.defaultChatModel);
   const [image, setImage] = useState(app.defaultImageModel);
   const [voice, setVoice] = useState(app.defaultVoice);
+  const [backends, setBackends] = useState<
+    Array<{
+      backend: string;
+      online: boolean;
+      models: Array<{ id: string }>;
+      error?: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    fetch("/api/models", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.backends) setBackends(d.backends);
+      })
+      .catch(() => undefined);
+  }, []);
 
   return (
-    <section className="max-w-md space-y-4">
+    <section className="max-w-lg space-y-4">
       <h2 className="text-sm font-medium text-white/85">Default models</h2>
-      <FieldLabel hint="Used when no override is set">Chat model</FieldLabel>
+      <FieldLabel hint="Used when no override is set">Chat backend</FieldLabel>
       <Select value={chat} onChange={(e) => setChat(e.target.value)}>
         <option value="llama-server">llama-server</option>
         <option value="lmstudio">LM Studio</option>
         <option value="ollama">Ollama</option>
       </Select>
+
+      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+        <p className="text-xs font-medium text-white/60">Detected models</p>
+        {backends.length === 0 ? (
+          <p className="mt-2 text-xs text-white/30">Checking backends…</p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {backends.map((b) => (
+              <li key={b.backend} className="text-xs">
+                <span
+                  className={
+                    b.online ? "text-helix" : "text-white/35"
+                  }
+                >
+                  {b.backend}
+                </span>
+                {b.online ? (
+                  <span className="text-white/45">
+                    {" "}
+                    · {b.models.length} model
+                    {b.models.length === 1 ? "" : "s"}
+                    {b.models[0] ? ` · ${b.models[0].id}` : ""}
+                  </span>
+                ) : (
+                  <span className="text-white/30">
+                    {" "}
+                    · offline{b.error ? ` (${b.error})` : ""}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <FieldLabel>Image model</FieldLabel>
       <Select value={image} onChange={(e) => setImage(e.target.value)}>
         <option value="flux-schnell">FLUX Schnell</option>

@@ -3,6 +3,7 @@
 import { Settings2 } from "lucide-react";
 import type { ChatMessageDto } from "@/lib/chat/types";
 import { sumMessageTokens } from "@/lib/chat/tokens";
+import { ModelPicker } from "./model-picker";
 
 interface ChatHeaderProps {
   title: string;
@@ -10,6 +11,7 @@ interface ChatHeaderProps {
   backend: string | null;
   messages: ChatMessageDto[];
   onOpenSystemPrompt: () => void;
+  onModelChange: (modelId: string) => void;
 }
 
 export function ChatHeader({
@@ -18,6 +20,7 @@ export function ChatHeader({
   backend,
   messages,
   onOpenSystemPrompt,
+  onModelChange,
 }: ChatHeaderProps) {
   const { in: tokensIn, out: tokensOut } = sumMessageTokens(messages);
 
@@ -31,9 +34,10 @@ export function ChatHeader({
         <span className="rounded-full border border-white/[0.06] px-2 py-0.5 text-helix/80">
           local · free
         </span>
-        {(model || backend) && (
-          <span className="hidden max-w-[120px] truncate font-mono md:inline">
-            {model ?? backend}
+        <ModelPicker value={model} onChange={onModelChange} />
+        {backend && (
+          <span className="hidden max-w-[80px] truncate font-mono text-white/25 md:inline">
+            {backend}
           </span>
         )}
         <button
