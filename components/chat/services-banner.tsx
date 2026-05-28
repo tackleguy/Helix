@@ -7,8 +7,14 @@ import type { ServiceHealth } from "@/lib/services/types";
 
 const CHAT_IDS = new Set(["llama-server", "lmstudio", "ollama"]);
 
+function isVercelHost(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.hostname.includes("vercel.app");
+}
+
 export function ServicesBanner() {
   const [chatOnline, setChatOnline] = useState<boolean | null>(null);
+  const onVercel = isVercelHost();
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +39,25 @@ export function ServicesBanner() {
       clearInterval(t);
     };
   }, []);
+
+  if (onVercel && chatOnline !== true) {
+    return (
+      <div className="flex items-start gap-2 border-b border-violet-400/15 bg-violet-400/5 px-4 py-2.5 text-xs text-violet-100/90">
+        <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-violet-300/80" />
+        <div>
+          <p className="font-medium">Cloud demo — local models unavailable here</p>
+          <p className="mt-0.5 text-violet-100/60">
+            This Vercel deploy cannot reach Ollama/LM Studio on your computer.
+            For full local chat run{" "}
+            <span className="font-mono text-violet-100/75">npm run dev</span>{" "}
+            locally, or add{" "}
+            <span className="font-mono text-violet-100/75">OPENAI_API_KEY</span>{" "}
+            in Vercel env settings for cloud chat.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (chatOnline !== false) return null;
 

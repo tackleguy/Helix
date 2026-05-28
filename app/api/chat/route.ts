@@ -16,10 +16,12 @@ import {
 } from "@/lib/chat/repository";
 import { streamChat } from "@/lib/chat/stream";
 import { estimateTokens } from "@/lib/chat/tokens";
+import { isCloudOnlyDeploy } from "@/lib/env";
 import { loadAppSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function titleFromFirstMessage(text: string) {
   const t = text.trim();
@@ -41,6 +43,15 @@ export async function POST(req: Request) {
 
   try {
     const session = getSessionOrThrow(sessionId);
+
+    if (isCloudOnlyDeploy() && !regenerate && !shouldContinue && editLastUser === undefined) {
+      return apiError(
+        "Chat on helix.vercel.app cannot reach local models on your machine. Run Helix locally (npm run dev) with Ollama or LM Studio, or add OPENAI_API_KEY in Vercel project settings for cloud chat.",
+        503,
+        "CLOUD_NO_BACKEND",
+      );
+    }
+
     let history = getMessages(sessionId);
     const isFirstExchange = history.length === 0;
 

@@ -1,35 +1,52 @@
-import { desc, eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
-import { getDb } from "@/lib/db";
-import { sessions } from "@/lib/db/schema";
-import { uid } from "@/lib/utils";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function ChatIndexPage() {
-  const db = getDb();
-  const row = db
-    .select()
-    .from(sessions)
-    .where(eq(sessions.archived, false))
-    .orderBy(desc(sessions.updatedAt))
-    .limit(1)
-    .get();
+  const router = useRouter();
 
-  if (row) {
-    redirect(`/chat/${row.id}`);
-  }
+  useEffect(() => {
+    let cancelled = false;
 
-  const id = uid();
-  const now = new Date();
-  db.insert(sessions)
-    .values({
-      id,
-      title: "New chat",
-      createdAt: now,
-      updatedAt: now,
-      archived: false,
-    })
-    .run();
-  redirect(`/chat/${id}`);
+    async function boot() {
+      try {
+        const listRes = await fetch("/api/chat/sessions", { cache: "no-store" });
+        if (listRes.ok) {
+          const data = (await listRes.json()) as {
+            sessions: Array<{ id: string }>;
+          };
+          const existing = data.sessions[0];
+          if (existing && !cancelled) {
+            router.replace(`/chat/${existing.id}`);
+            return;
+          }
+        }
+
+        const createRes = await fetch("/api/chat/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!createRes.ok) throw new Error("failed to create session");
+        const { session } = (await createRes.json()) as {
+          session: { id: string };
+        };
+        if (!cancelled) router.replace(`/chat/${session.id}`);
+      } catch {
+        if (!cancelled) router.replace("/");
+      }
+    }
+
+    void boot();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  return (
+    <div className="flex flex-1 items-center justify-center text-sm text-white/35">
+      Loading chat…
+    </div>
+  );
 }

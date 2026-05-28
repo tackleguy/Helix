@@ -31,7 +31,19 @@ export function ChatView({ sessionId }: ChatViewProps) {
       cache: "no-store",
     });
     if (!res.ok) {
-      if (res.status === 404) router.replace("/chat");
+      if (res.status === 404) {
+        const createRes = await fetch("/api/chat/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (createRes.ok) {
+          const { session } = (await createRes.json()) as {
+            session: { id: string };
+          };
+          router.replace(`/chat/${session.id}`);
+        }
+      }
       return;
     }
     const data = (await res.json()) as {
@@ -86,7 +98,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
-          const payload = JSON.parse(line.slice(6)) as {
+          let payload: {
             type: string;
             assistantId?: string;
             text?: string;
@@ -94,6 +106,11 @@ export function ChatView({ sessionId }: ChatViewProps) {
             model?: string;
             error?: string;
           };
+          try {
+            payload = JSON.parse(line.slice(6)) as typeof payload;
+          } catch {
+            continue;
+          }
 
           if (payload.type === "meta" && payload.assistantId) {
             assistantId = payload.assistantId;
