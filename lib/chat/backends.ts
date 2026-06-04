@@ -1,3 +1,4 @@
+import { ollamaRequestHeaders } from "@/lib/ollama";
 import { loadAppSettings } from "@/lib/settings";
 import { loadServiceUrls, getServiceHealth } from "@/lib/services/registry";
 import type { ChatBackendId } from "./types";
@@ -10,12 +11,19 @@ export interface ResolvedBackend {
   model: string;
 }
 
-export async function listModels(baseUrl: string): Promise<string[]> {
+export async function listModels(
+  baseUrl: string,
+  backendId?: ChatBackendId,
+): Promise<string[]> {
   const url = baseUrl.replace(/\/$/, "") + "/v1/models";
+  const headers =
+    backendId === "ollama"
+      ? ollamaRequestHeaders()
+      : { Accept: "application/json" };
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(4000),
-      headers: { Accept: "application/json" },
+      headers,
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { data?: Array<{ id: string }> };
@@ -43,7 +51,7 @@ export async function resolveChatBackend(
     const health = await getServiceHealth(id);
     if (!health.online) continue;
     const baseUrl = urls[id];
-    const models = await listModels(baseUrl);
+    const models = await listModels(baseUrl, id);
     const model =
       overrideModel && models.includes(overrideModel)
         ? overrideModel

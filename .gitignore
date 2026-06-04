@@ -17,3 +17,13 @@ backend/__pycache__/
 backend/**/__pycache__/
 backend/**/*.pyc
 *.egg-info/
+
+# Fine-tuning artifacts
+finetune/.venv/
+finetune/outputs/
+finetune/custom_llama/
+finetune/gguf/
+finetune/**/*.gguf
+finetune/adapters/
+finetune/fused/
+finetune/data/

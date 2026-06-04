@@ -301,6 +301,12 @@ function ServicesTab({
       <h2 className="text-sm font-medium text-white/85">Service URLs</h2>
       <p className="text-xs text-white/35">
         Helix pings each backend on startup and caches status for 60 seconds.
+        Ollama Cloud: set{" "}
+        <code className="rounded bg-white/[0.06] px-1 font-mono text-[10px]">
+          OLLAMA_API_KEY
+        </code>{" "}
+        in <code className="font-mono text-[10px]">.env.local</code> and use
+        base URL <code className="font-mono text-[10px]">https://ollama.com</code>.
       </p>
       {configs.map((cfg) => (
         <div key={cfg.id}>

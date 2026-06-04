@@ -18,6 +18,7 @@ import { streamChat } from "@/lib/chat/stream";
 import { estimateTokens } from "@/lib/chat/tokens";
 import { isCloudOnlyDeploy, hasCloudChat } from "@/lib/env";
 import { loadAppSettings } from "@/lib/settings";
+import { resolveSystemPrompt } from "@/lib/study/resolve-system";
 import { uid } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
   if (isCloudOnlyDeploy()) {
     if (!hasCloudChat()) {
       return apiError(
-        "Helix on Vercel cannot reach Ollama or LM Studio on your computer. Run `npm run dev` locally for local models, or add OPENAI_API_KEY in Vercel → Project → Settings → Environment Variables for cloud chat.",
+        "Helix on Vercel cannot reach local Ollama or LM Studio. Add HF_API_KEY (recommended) or OPENAI_API_KEY in Vercel → Project → Settings → Environment Variables, or run `npm run dev` locally for local models.",
         503,
         "CLOUD_NO_BACKEND",
       );
@@ -233,10 +234,15 @@ export async function POST(req: Request) {
     }
 
     const settings = loadAppSettings();
+    const system = resolveSystemPrompt({
+      sessionModel: session.model,
+      sessionSystemPrompt: session.systemPrompt,
+      sessionTitle: session.title,
+    });
     const { result, backend, model } = await streamChat({
       backendId: settings.defaultChatModel,
-      model: session.model,
-      system: session.systemPrompt,
+      model: session.model ?? undefined,
+      system,
       messages: coreMessages,
     });
 

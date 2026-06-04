@@ -8,6 +8,7 @@ import {
   Video,
   Bot,
   Brain,
+  GraduationCap,
   Mic,
   Settings,
   PanelLeftClose,
@@ -18,6 +19,7 @@ import { ChatSessionList } from "@/components/chat/session-list";
 
 const NAV = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
+  { href: "/study", label: "Study", icon: GraduationCap },
   { href: "/images", label: "Images", icon: ImageIcon },
   { href: "/video", label: "Video", icon: Video },
   { href: "/agents", label: "Agents", icon: Bot },

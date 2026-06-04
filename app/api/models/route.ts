@@ -1,4 +1,5 @@
 import { apiError } from "@/lib/api";
+import { ollamaRequestHeaders } from "@/lib/ollama";
 import { loadServiceUrls, getAllServiceHealth } from "@/lib/services/registry";
 import type { ServiceId } from "@/lib/services/types";
 import { logServer } from "@/lib/logger";
@@ -21,9 +22,13 @@ async function fetchModels(
 ): Promise<BackendModels> {
   try {
     const url = baseUrl.replace(/\/$/, "") + "/v1/models";
+    const headers =
+      backend === "ollama"
+        ? ollamaRequestHeaders()
+        : { Accept: "application/json" };
     const res = await fetch(url, {
       signal: AbortSignal.timeout(3000),
-      headers: { Accept: "application/json" },
+      headers,
     });
     if (!res.ok) {
       return {

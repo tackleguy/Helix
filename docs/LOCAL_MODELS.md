@@ -28,6 +28,20 @@ curl -L -O https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF/resolve/ma
 
 You don't need all four — only the ones you'll actually use.
 
+## Study Helix (study-only fine-tune)
+
+```bash
+npm run study:build
+npm run study:serve
+```
+
+Opens the **Study** workspace in Helix with model `study-helix`. Full docs:
+[`finetune/README.md`](../finetune/README.md).
+
+## Other custom fine-tunes
+
+General LoRA / Unsloth setup: same `finetune/` folder (`train.py`, `export_gguf.py`).
+
 ## Running
 
 ```bash

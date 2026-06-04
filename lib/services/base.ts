@@ -1,3 +1,4 @@
+import { ollamaRequestHeaders } from "@/lib/ollama";
 import type { ServiceConfig, ServiceHealth, ServiceId } from "./types";
 
 const DEFAULTS: ServiceConfig[] = [
@@ -59,13 +60,14 @@ export async function pingService(
   baseUrl: string,
   healthPath: string,
   timeoutMs = 3000,
+  headers: Record<string, string> = { Accept: "application/json" },
 ): Promise<{ online: boolean; latencyMs: number | null; detail: string | null }> {
   const url = baseUrl.replace(/\/$/, "") + healthPath;
   const started = Date.now();
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(timeoutMs),
-      headers: { Accept: "application/json" },
+      headers,
     });
     const latencyMs = Date.now() - started;
     if (res.ok) {
@@ -90,7 +92,11 @@ export async function checkServiceHealth(
   baseUrl: string,
 ): Promise<ServiceHealth> {
   const cfg = getServiceConfig(id);
-  const result = await pingService(baseUrl, cfg.healthPath);
+  const headers =
+    id === "ollama"
+      ? ollamaRequestHeaders()
+      : { Accept: "application/json" };
+  const result = await pingService(baseUrl, cfg.healthPath, 3000, headers);
   return {
     id,
     label: cfg.label,

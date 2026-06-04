@@ -1,0 +1,13 @@
+# Example Ollama Modelfile after GGUF export.
+# From finetune/:  ollama create helix-ft -f Modelfile.example
+#
+# Adjust FROM to your exported .gguf filename in gguf/
+
+FROM ./gguf/model.gguf
+
+SYSTEM """You are Helix, a fast conversational AI assistant.
+You answer directly and clearly.
+You avoid robotic wording."""
+
+PARAMETER temperature 0.7
+PARAMETER num_ctx 4096

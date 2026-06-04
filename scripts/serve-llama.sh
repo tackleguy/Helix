@@ -2,7 +2,7 @@
 # Helix llama.cpp launcher.
 #
 # Wraps llama-server with the model aliases the picker expects:
-#   llama-3b, qwen-7b, qwen-14b, deepseek-r1
+#   llama-3b, qwen-7b, qwen-14b, deepseek-r1, study-helix
 #
 # Override paths via env if your layout differs:
 #   LLAMA_BIN=/path/to/llama-server
@@ -32,6 +32,7 @@ declare -A MODEL_FILES=(
   [qwen-7b]="Qwen2.5-7B-Instruct-Q4_K_M.gguf"
   [qwen-14b]="Qwen2.5-14B-Instruct-Q4_K_M.gguf"
   [deepseek-r1]="DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
+  [study-helix]="Helix-Study-Q4_K_M.gguf"
 )
 
 choice="${1:-qwen-7b}"
@@ -66,6 +67,12 @@ if [[ ! -f "$path" ]]; then
     qwen-7b) repo="bartowski/Qwen2.5-7B-Instruct-GGUF" ;;
     qwen-14b) repo="bartowski/Qwen2.5-14B-Instruct-GGUF" ;;
     deepseek-r1) repo="bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF" ;;
+    study-helix)
+      echo "[helix] study-helix is a custom fine-tune. Build it with:"
+      echo "[helix]   ./scripts/build-study-model.sh"
+      echo "[helix] Or place Helix-Study-Q4_K_M.gguf in $LLAMA_MODELS"
+      exit 1
+      ;;
   esac
   echo "[helix]   curl -L -o \"$path\" \\"
   echo "[helix]     https://huggingface.co/$repo/resolve/main/$file"

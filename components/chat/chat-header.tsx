@@ -3,6 +3,7 @@
 import { Settings2 } from "lucide-react";
 import type { ChatMessageDto } from "@/lib/chat/types";
 import { sumMessageTokens } from "@/lib/chat/tokens";
+import { isStudyModel } from "@/lib/study/constants";
 import { ModelPicker } from "./model-picker";
 
 interface ChatHeaderProps {
@@ -27,6 +28,11 @@ export function ChatHeader({
   return (
     <header className="flex h-11 flex-shrink-0 items-center gap-3 border-b border-white/[0.06] px-3">
       <h1 className="truncate text-sm font-medium text-white/80">{title}</h1>
+      {isStudyModel(model) && (
+        <span className="rounded-full border border-helix/30 bg-helix/10 px-2 py-0.5 text-[10px] font-medium text-helix">
+          Study only
+        </span>
+      )}
       <div className="ml-auto flex items-center gap-2 text-[11px] text-white/35">
         <span className="hidden font-mono sm:inline">
           {tokensIn + tokensOut} tok

@@ -7,6 +7,7 @@ import {
   getServiceConfigs,
   pingService,
 } from "./base";
+import { getDefaultOllamaUrl } from "@/lib/ollama";
 import type { ServiceHealth, ServiceId } from "./types";
 
 const CACHE_TTL_MS = 60_000;
@@ -30,7 +31,7 @@ export interface ServiceUrls {
 
 const DEFAULT_URLS: ServiceUrls = {
   lmstudio: "http://127.0.0.1:1234",
-  ollama: "http://127.0.0.1:11434",
+  ollama: getDefaultOllamaUrl(),
   "llama-server": "http://127.0.0.1:8080",
   comfyui: "http://127.0.0.1:8188",
   whisper: "http://127.0.0.1:8081",

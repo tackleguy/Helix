@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "study:dataset": "python3 finetune/build_study_dataset.py",
+    "study:build": "bash scripts/build-study-model.sh",
+    "study:build:quick": "bash scripts/build-study-model.sh --quick",
+    "study:serve": "bash scripts/serve-llama.sh study-helix",
+    "system-check": "bash scripts/system-check.sh"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
