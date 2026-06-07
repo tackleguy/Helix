@@ -66,6 +66,11 @@ fi
 
 if [ -n "${HF_API_KEY:-}" ] || [ -n "${HF_TOKEN:-}" ]; then
   ok "HF_API_KEY set (cloud chat via Hugging Face)"
+  if node "${ROOT}/scripts/test-hf-connection.mjs" >/dev/null 2>&1; then
+    ok "Hugging Face inference API reachable"
+  else
+    fail "Hugging Face inference API test failed (run: npm run test:hf)"
+  fi
 else
   warn "HF_API_KEY not set — add after: hf auth login (or paste token)"
 fi

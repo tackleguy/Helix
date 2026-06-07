@@ -12,7 +12,8 @@
     "study:build": "bash scripts/build-study-model.sh",
     "study:build:quick": "bash scripts/build-study-model.sh --quick",
     "study:serve": "bash scripts/serve-llama.sh study-helix",
-    "system-check": "bash scripts/system-check.sh"
+    "system-check": "bash scripts/system-check.sh",
+    "test:hf": "node scripts/test-hf-connection.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
