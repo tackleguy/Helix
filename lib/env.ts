@@ -48,3 +48,8 @@ export function resolveAIProvider(): AIProviderName | null {
 export function isCloudOnlyDeploy(): boolean {
   return isVercelDeploy() && !hasCloudChat();
 }
+
+/** Vercel serverless: use in-memory sessions (SQLite /tmp is unreliable). */
+export function useVercelMemoryStore(): boolean {
+  return isVercelDeploy();
+}

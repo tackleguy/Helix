@@ -100,12 +100,16 @@ export function getProvider(id: AIProviderId): AIProvider {
 
 export function resolveProviderForRequest(): AIProviderId {
   const explicit = resolveAIProvider();
-  if (explicit) return explicit;
+  if (explicit && !(isVercelDeploy() && explicit === "local")) {
+    return explicit;
+  }
 
   if (isVercelDeploy()) {
     if (hasHuggingFaceChat()) return "huggingface";
     if (hasCloudChat()) return "openai";
-    return "huggingface";
+    throw new Error(
+      "No cloud AI provider configured. Set HF_API_KEY or OPENAI_API_KEY in Vercel environment variables.",
+    );
   }
 
   if (hasHuggingFaceChat() && process.env.AI_PREFER_LOCAL !== "true") {

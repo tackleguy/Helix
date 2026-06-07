@@ -50,8 +50,9 @@ export function ServicesBanner() {
             This Vercel deploy cannot reach Ollama/LM Studio on your computer.
             For full local chat run{" "}
             <span className="font-mono text-violet-100/75">npm run dev</span>{" "}
-            locally, or add{" "}
-            <span className="font-mono text-violet-100/75">OPENAI_API_KEY</span>{" "}
+            locally,             or add{" "}
+            <span className="font-mono text-violet-100/75">HF_API_KEY</span>{" "}
+            (or <span className="font-mono text-violet-100/75">OPENAI_API_KEY</span>)
             in Vercel env settings for cloud chat.
           </p>
         </div>

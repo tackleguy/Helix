@@ -1,24 +1,22 @@
-import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { apiError, parseJsonBody } from "@/lib/api";
-import { getDb } from "@/lib/db";
-import { sessions } from "@/lib/db/schema";
-import { uid } from "@/lib/utils";
+import { defaultCloudModelForNewSession } from "@/lib/chat/cloud-model";
+import {
+  createSession,
+  deleteSession,
+  listSessions,
+  toSessionDto,
+} from "@/lib/chat/repository";
 import { logServer } from "@/lib/logger";
+import { isVercelDeploy } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const db = getDb();
-    const rows = db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.archived, false))
-      .orderBy(desc(sessions.updatedAt))
-      .all();
-    return Response.json({ sessions: rows });
+    const rows = listSessions(false);
+    return Response.json({ sessions: rows.map(toSessionDto) });
   } catch (err) {
     logServer("error", "sessions GET failed", {
       error: err instanceof Error ? err.message : String(err),
@@ -38,20 +36,15 @@ export async function POST(req: Request) {
   if ("error" in parsed) return parsed.error;
 
   try {
-    const db = getDb();
-    const id = uid();
-    const now = new Date();
-    const row = {
-      id,
-      title: parsed.data.title ?? "New chat",
-      model: parsed.data.model ?? null,
-      systemPrompt: parsed.data.systemPrompt ?? null,
-      createdAt: now,
-      updatedAt: now,
-      archived: false,
-    };
-    db.insert(sessions).values(row).run();
-    return Response.json({ session: row }, { status: 201 });
+    const defaultModel =
+      parsed.data.model ??
+      (isVercelDeploy() ? defaultCloudModelForNewSession() : null);
+    const row = createSession({
+      title: parsed.data.title,
+      model: defaultModel,
+      systemPrompt: parsed.data.systemPrompt,
+    });
+    return Response.json({ session: toSessionDto(row) }, { status: 201 });
   } catch (err) {
     logServer("error", "sessions POST failed", {
       error: err instanceof Error ? err.message : String(err),
@@ -69,22 +62,15 @@ export async function DELETE(req: Request) {
   if ("error" in parsed) return parsed.error;
 
   try {
-    const db = getDb();
-    db.delete(sessions).run();
-    const id = uid();
-    const now = new Date();
-    const fresh = {
-      id,
+    for (const s of listSessions(true)) {
+      deleteSession(s.id);
+    }
+    const row = createSession({
       title: "New chat",
-      model: null,
-      systemPrompt: null,
-      createdAt: now,
-      updatedAt: now,
-      archived: false,
-    };
-    db.insert(sessions).values(fresh).run();
+      model: isVercelDeploy() ? defaultCloudModelForNewSession() : null,
+    });
     logServer("info", "all chat sessions cleared");
-    return Response.json({ session: fresh });
+    return Response.json({ session: toSessionDto(row) });
   } catch (err) {
     logServer("error", "sessions DELETE failed", {
       error: err instanceof Error ? err.message : String(err),

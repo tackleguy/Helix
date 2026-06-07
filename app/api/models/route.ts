@@ -1,8 +1,14 @@
 import { apiError } from "@/lib/api";
 import { ollamaRequestHeaders } from "@/lib/ollama";
+import {
+  hasHuggingFaceChat,
+  hasOpenAIChat,
+  isVercelDeploy,
+} from "@/lib/env";
 import { loadServiceUrls, getAllServiceHealth } from "@/lib/services/registry";
 import type { ServiceId } from "@/lib/services/types";
 import { logServer } from "@/lib/logger";
+import { getHuggingFaceModel } from "@/src/services/ai/huggingface";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +16,7 @@ export const dynamic = "force-dynamic";
 const CHAT_BACKENDS: ServiceId[] = ["llama-server", "lmstudio", "ollama"];
 
 interface BackendModels {
-  backend: ServiceId;
+  backend: string;
   online: boolean;
   models: Array<{ id: string }>;
   error?: string;
@@ -53,13 +59,55 @@ async function fetchModels(
   }
 }
 
+function cloudBackends(): BackendModels[] {
+  const cloud: BackendModels[] = [];
+
+  if (hasHuggingFaceChat()) {
+    const model = getHuggingFaceModel();
+    cloud.push({
+      backend: "huggingface",
+      online: true,
+      models: [{ id: model }],
+    });
+  }
+
+  if (hasOpenAIChat()) {
+    const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+    cloud.push({
+      backend: "openai",
+      online: true,
+      models: [{ id: model }],
+    });
+  }
+
+  return cloud;
+}
+
 export async function GET() {
   try {
+    const cloud = cloudBackends();
+
+    if (isVercelDeploy()) {
+      return Response.json({
+        backends:
+          cloud.length > 0
+            ? cloud
+            : [
+                {
+                  backend: "huggingface",
+                  online: false,
+                  models: [],
+                  error: "Set HF_API_KEY in Vercel environment variables",
+                },
+              ],
+      });
+    }
+
     const urls = await loadServiceUrls();
     const healths = await getAllServiceHealth();
     const healthById = new Map(healths.map((h) => [h.id, h]));
 
-    const results = await Promise.all(
+    const local = await Promise.all(
       CHAT_BACKENDS.map((id) => {
         const online = healthById.get(id)?.online ?? false;
         if (!online) {
@@ -74,7 +122,7 @@ export async function GET() {
       }),
     );
 
-    return Response.json({ backends: results });
+    return Response.json({ backends: [...cloud, ...local] });
   } catch (err) {
     logServer("error", "models GET failed", {
       error: err instanceof Error ? err.message : String(err),

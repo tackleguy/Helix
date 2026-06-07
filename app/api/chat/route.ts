@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { apiError, parseJsonBody } from "@/lib/api";
 import { logServer } from "@/lib/logger";
 import { ChatRequestSchema } from "@/lib/chat/types";
@@ -16,7 +15,8 @@ import {
 } from "@/lib/chat/repository";
 import { streamChat } from "@/lib/chat/stream";
 import { estimateTokens } from "@/lib/chat/tokens";
-import { isCloudOnlyDeploy, hasCloudChat } from "@/lib/env";
+import { resolveCloudModelId } from "@/lib/chat/cloud-model";
+import { hasCloudChat, isVercelDeploy } from "@/lib/env";
 import { loadAppSettings } from "@/lib/settings";
 import { resolveSystemPrompt } from "@/lib/study/resolve-system";
 import { uid } from "@/lib/utils";
@@ -28,74 +28,6 @@ export const maxDuration = 60;
 function titleFromFirstMessage(text: string) {
   const t = text.trim();
   return t.length > 40 ? t.slice(0, 40) + "…" : t;
-}
-
-async function handleStatelessCloudChat({
-  message,
-  attachments,
-}: {
-  message?: string;
-  attachments?: z.infer<typeof ChatRequestSchema>["attachments"];
-}) {
-  const hasPayload =
-    (message !== undefined && message.trim().length > 0) ||
-    (attachments !== undefined && attachments.length > 0);
-  if (!hasPayload) {
-    return apiError("empty message", 400, "EMPTY_MESSAGE");
-  }
-
-  const processed = attachments?.length ? await processAttachments(attachments) : [];
-  const content = buildUserContent(message ?? "", processed);
-  const assistantId = uid();
-
-  const { result, backend, model } = await streamChat({
-    messages: [{ role: "user", content }],
-  });
-
-  const encoder = new TextEncoder();
-  let acc = "";
-
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({ type: "meta", assistantId, backend: backend.id, model })}\n\n`,
-        ),
-      );
-      try {
-        for await (const chunk of result.textStream) {
-          acc += chunk;
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: "delta", text: chunk })}\n\n`,
-            ),
-          );
-        }
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "done", tokensOut: estimateTokens(acc) })}\n\n`,
-          ),
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "stream failed";
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "error", error: msg })}\n\n`,
-          ),
-        );
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
 }
 
 export async function POST(req: Request) {
@@ -111,18 +43,12 @@ export async function POST(req: Request) {
     editLastUser,
   } = parsed.data;
 
-  if (isCloudOnlyDeploy()) {
-    if (!hasCloudChat()) {
-      return apiError(
-        "Helix on Vercel cannot reach local Ollama or LM Studio. Add HF_API_KEY (recommended) or OPENAI_API_KEY in Vercel → Project → Settings → Environment Variables, or run `npm run dev` locally for local models.",
-        503,
-        "CLOUD_NO_BACKEND",
-      );
-    }
-    return handleStatelessCloudChat({
-      message,
-      attachments,
-    });
+  if (isVercelDeploy() && !hasCloudChat()) {
+    return apiError(
+      "Helix on Vercel cannot reach local Ollama or LM Studio. Add HF_API_KEY (recommended) or OPENAI_API_KEY in Vercel → Project → Settings → Environment Variables, or run `npm run dev` locally for local models.",
+      503,
+      "CLOUD_NO_BACKEND",
+    );
   }
 
   try {
@@ -241,7 +167,7 @@ export async function POST(req: Request) {
     });
     const { result, backend, model } = await streamChat({
       backendId: settings.defaultChatModel,
-      model: session.model ?? undefined,
+      model: resolveCloudModelId(session.model),
       system,
       messages: coreMessages,
     });

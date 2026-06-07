@@ -1,5 +1,7 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { memoryStore } from "@/lib/db/memory-store";
+import { useVercelMemoryStore } from "@/lib/env";
 import { messages, sessions } from "@/lib/db/schema";
 import { uid } from "@/lib/utils";
 import type { ChatMessageDto, SessionDto, StoredAttachment } from "./types";
@@ -38,17 +40,20 @@ function toMessageDto(row: typeof messages.$inferSelect): ChatMessageDto {
 }
 
 export function getSession(id: string) {
+  if (useVercelMemoryStore()) return memoryStore.getSession(id);
   const db = getDb();
   return db.select().from(sessions).where(eq(sessions.id, id)).get();
 }
 
 export function getSessionOrThrow(id: string) {
+  if (useVercelMemoryStore()) return memoryStore.getSessionOrThrow(id);
   const row = getSession(id);
   if (!row) throw new Error("session not found");
   return row;
 }
 
 export function listSessions(includeArchived = false) {
+  if (useVercelMemoryStore()) return memoryStore.listSessions(includeArchived);
   const db = getDb();
   if (includeArchived) {
     return db.select().from(sessions).orderBy(desc(sessions.updatedAt)).all();
@@ -62,6 +67,7 @@ export function listSessions(includeArchived = false) {
 }
 
 export function getMessages(sessionId: string): ChatMessageDto[] {
+  if (useVercelMemoryStore()) return memoryStore.getMessages(sessionId);
   const db = getDb();
   return db
     .select()
@@ -77,6 +83,7 @@ export function createSession(input?: {
   model?: string | null;
   systemPrompt?: string | null;
 }) {
+  if (useVercelMemoryStore()) return memoryStore.createSession(input);
   const db = getDb();
   const id = uid();
   const now = new Date();
@@ -102,6 +109,10 @@ export function updateSession(
     archived: boolean;
   }>,
 ) {
+  if (useVercelMemoryStore()) {
+    memoryStore.updateSession(id, patch);
+    return;
+  }
   const db = getDb();
   db.update(sessions)
     .set({ ...patch, updatedAt: new Date() })
@@ -110,6 +121,10 @@ export function updateSession(
 }
 
 export function deleteSession(id: string) {
+  if (useVercelMemoryStore()) {
+    memoryStore.deleteSession(id);
+    return;
+  }
   const db = getDb();
   db.delete(sessions).where(eq(sessions.id, id)).run();
 }
@@ -122,6 +137,7 @@ export function insertMessage(input: {
   tokensIn?: number | null;
   tokensOut?: number | null;
 }) {
+  if (useVercelMemoryStore()) return memoryStore.insertMessage(input);
   const db = getDb();
   const id = uid();
   const now = new Date();
@@ -151,16 +167,32 @@ export function updateMessage(
     tokensOut: number | null;
   }>,
 ) {
+  if (useVercelMemoryStore()) {
+    memoryStore.updateMessage(id, patch);
+    return;
+  }
   const db = getDb();
   db.update(messages).set(patch).where(eq(messages.id, id)).run();
 }
 
 export function deleteMessage(id: string) {
+  if (useVercelMemoryStore()) {
+    memoryStore.deleteMessage(id);
+    return;
+  }
   const db = getDb();
   db.delete(messages).where(eq(messages.id, id)).run();
 }
 
 export function deleteMessagesAfter(sessionId: string, afterCreatedAt: Date) {
+  if (useVercelMemoryStore()) {
+    for (const m of memoryStore.getMessages(sessionId)) {
+      if (m.createdAt > afterCreatedAt.getTime()) {
+        memoryStore.deleteMessage(m.id);
+      }
+    }
+    return;
+  }
   const db = getDb();
   const rows = db
     .select()
@@ -176,6 +208,9 @@ export function deleteMessagesAfter(sessionId: string, afterCreatedAt: Date) {
 }
 
 export function branchSession(sessionId: string, untilMessageId: string) {
+  if (useVercelMemoryStore()) {
+    return memoryStore.branchSession(sessionId, untilMessageId);
+  }
   const db = getDb();
   const source = getSessionOrThrow(sessionId);
   const all = db
