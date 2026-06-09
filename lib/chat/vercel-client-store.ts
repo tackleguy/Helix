@@ -1,8 +1,8 @@
 "use client";
 
 import type { ChatMessageDto, SessionDto } from "./types";
+import { DEFAULT_CLOUD_MODEL } from "./constants";
 import { uid } from "@/lib/utils";
-import { DEFAULT_HF_MODEL } from "@/src/services/ai/types";
 
 const SESSIONS_KEY = "helix:vercel:sessions";
 const messagesKey = (id: string) => `helix:vercel:messages:${id}`;
@@ -62,7 +62,7 @@ export function ensureVercelSession(id: string): SessionDto {
   const session: SessionDto = {
     id,
     title: "New chat",
-    model: DEFAULT_HF_MODEL,
+    model: DEFAULT_CLOUD_MODEL,
     systemPrompt: null,
     createdAt: now,
     updatedAt: now,

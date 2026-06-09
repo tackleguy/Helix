@@ -51,8 +51,9 @@ export async function detectCloudClient(): Promise<boolean> {
   try {
     const res = await fetch("/api/cloud-status", { cache: "no-store" });
     if (res.ok) {
-      const data = (await res.json()) as { vercel?: boolean; cloudChat?: boolean };
-      const cloud = Boolean(data.vercel && data.cloudChat);
+      const data = (await res.json()) as { vercel?: boolean };
+      // Any Vercel deploy uses browser session storage (not server SQLite).
+      const cloud = Boolean(data.vercel);
       try {
         sessionStorage.setItem(CACHE_KEY, cloud ? "1" : "0");
       } catch {
