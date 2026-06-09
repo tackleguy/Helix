@@ -6,6 +6,10 @@ import { uid } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default function WorkspaceHome() {
+  if (process.env.VERCEL === "1") {
+    redirect("/chat");
+  }
+
   const db = getDb();
   const existing = db.select().from(sessions).limit(1).get();
   if (existing) {

@@ -10,6 +10,13 @@ import { ServicesBanner } from "./services-banner";
 import { TopBar } from "@/components/workspace/layout";
 import type { ChatMessageDto, SessionDto } from "@/lib/chat/types";
 import { isVercelHost } from "@/lib/chat/vercel-host";
+import {
+  getVercelMessages,
+  getVercelSession,
+  saveVercelMessages,
+  touchVercelSessionTitle,
+  updateVercelSession,
+} from "@/lib/chat/vercel-client-store";
 
 interface ChatViewProps {
   sessionId: string;
@@ -28,6 +35,17 @@ export function ChatView({ sessionId }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
+    if (isVercelHost()) {
+      const local = getVercelSession(sessionId);
+      if (!local) {
+        router.replace("/chat");
+        return;
+      }
+      setSession(local);
+      setMessages(getVercelMessages(sessionId));
+      return;
+    }
+
     const res = await fetch(`/api/chat/sessions/${sessionId}`, {
       cache: "no-store",
     });
@@ -64,17 +82,45 @@ export function ChatView({ sessionId }: ChatViewProps) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, streaming]);
 
+  const toApiHistory = (msgs: ChatMessageDto[]) =>
+    msgs
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+
   const streamChat = async (body: Record<string, unknown>) => {
     setError(null);
     setStreaming(true);
     const controller = new AbortController();
     abortRef.current = controller;
 
+    const onVercel = isVercelHost();
+    let workingMessages = [...messages];
+
     try {
+      const payload: Record<string, unknown> = { ...body };
+      if (onVercel) {
+        if (body.regenerate) {
+          const lastAssistantIdx = workingMessages.reduce(
+            (acc, m, i) => (m.role === "assistant" ? i : acc),
+            -1,
+          );
+          if (lastAssistantIdx >= 0) {
+            workingMessages = workingMessages.slice(0, lastAssistantIdx);
+            setMessages(workingMessages);
+          }
+        }
+        payload.history = toApiHistory(workingMessages);
+        payload.model = session?.model ?? undefined;
+        payload.systemPrompt = session?.systemPrompt ?? null;
+      }
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
 
@@ -118,28 +164,32 @@ export function ChatView({ sessionId }: ChatViewProps) {
             setBackend(payload.backend ?? null);
             setMessages((m) => {
               if (m.some((x) => x.id === assistantId)) return m;
-              return [
+              const next = [
                 ...m,
                 {
                   id: assistantId!,
-                  role: "assistant",
+                  role: "assistant" as const,
                   content: "",
                   tokensIn: null,
                   tokensOut: null,
                   createdAt: Date.now(),
                 },
               ];
+              if (onVercel) saveVercelMessages(sessionId, next);
+              return next;
             });
           }
 
           if (payload.type === "delta" && payload.text && assistantId) {
-            setMessages((m) =>
-              m.map((msg) =>
+            setMessages((m) => {
+              const next = m.map((msg) =>
                 msg.id === assistantId
                   ? { ...msg, content: msg.content + payload.text! }
                   : msg,
-              ),
-            );
+              );
+              if (onVercel) saveVercelMessages(sessionId, next);
+              return next;
+            });
           }
 
           if (payload.type === "error") {
@@ -148,13 +198,13 @@ export function ChatView({ sessionId }: ChatViewProps) {
         }
       }
 
-      if (!window.location.hostname.includes("vercel.app")) {
+      if (!onVercel) {
         await load();
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Chat failed");
-      if (!window.location.hostname.includes("vercel.app")) {
+      if (!onVercel) {
         await load();
       }
     } finally {
@@ -179,6 +229,26 @@ export function ChatView({ sessionId }: ChatViewProps) {
       setEditDraft(null);
       return;
     }
+    const userMsg: ChatMessageDto = {
+      id: `local-${Date.now()}`,
+      role: "user",
+      content: message,
+      tokensIn: null,
+      tokensOut: null,
+      createdAt: Date.now(),
+    };
+    if (isVercelHost()) {
+      const next = [...messages, userMsg];
+      setMessages(next);
+      saveVercelMessages(sessionId, next);
+      if (messages.length === 0) {
+        touchVercelSessionTitle(sessionId, message.trim().slice(0, 40));
+        setSession((s) =>
+          s ? { ...s, title: message.trim().slice(0, 40), updatedAt: Date.now() } : s,
+        );
+      }
+    }
+
     await streamChat({
       sessionId,
       message,
@@ -199,6 +269,15 @@ export function ChatView({ sessionId }: ChatViewProps) {
   const onStop = () => abortRef.current?.abort();
 
   const saveSystemPrompt = async (systemPrompt: string) => {
+    if (isVercelHost()) {
+      updateVercelSession(sessionId, {
+        systemPrompt: systemPrompt || null,
+      });
+      setSession((s) =>
+        s ? { ...s, systemPrompt: systemPrompt || null } : s,
+      );
+      return;
+    }
     await fetch(`/api/chat/sessions/${sessionId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -208,6 +287,11 @@ export function ChatView({ sessionId }: ChatViewProps) {
   };
 
   const saveModel = async (modelId: string) => {
+    if (isVercelHost()) {
+      updateVercelSession(sessionId, { model: modelId });
+      setSession((s) => (s ? { ...s, model: modelId } : s));
+      return;
+    }
     await fetch(`/api/chat/sessions/${sessionId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

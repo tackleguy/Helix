@@ -12,6 +12,11 @@ export const AttachmentSchema = z.object({
 
 export type AttachmentInput = z.infer<typeof AttachmentSchema>;
 
+const ChatHistoryMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string(),
+});
+
 export const ChatRequestSchema = z.object({
   sessionId: z.string().min(1),
   message: z.string().optional(),
@@ -19,6 +24,10 @@ export const ChatRequestSchema = z.object({
   regenerate: z.boolean().optional(),
   continue: z.boolean().optional(),
   editLastUser: z.string().optional(),
+  /** Vercel stateless mode: client sends full history (server has no shared DB). */
+  history: z.array(ChatHistoryMessageSchema).optional(),
+  model: z.string().optional(),
+  systemPrompt: z.string().nullable().optional(),
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;

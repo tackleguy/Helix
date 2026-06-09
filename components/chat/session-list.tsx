@@ -12,6 +12,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { groupSessions, type SessionListItem } from "@/lib/chat/session-buckets";
+import { isVercelHost } from "@/lib/chat/vercel-host";
+import {
+  createVercelSession,
+  deleteVercelSession,
+  listVercelSessions,
+  updateVercelSession,
+} from "@/lib/chat/vercel-client-store";
 
 export function ChatSessionList() {
   const pathname = usePathname();
@@ -20,6 +27,17 @@ export function ChatSessionList() {
   const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
+    if (isVercelHost()) {
+      setLoadError(false);
+      setSessions(
+        listVercelSessions().map((s) => ({
+          id: s.id,
+          title: s.title,
+          updatedAt: s.updatedAt,
+        })),
+      );
+      return;
+    }
     const res = await fetch("/api/chat/sessions", { cache: "no-store" });
     if (res.ok) {
       setLoadError(false);
@@ -46,6 +64,12 @@ export function ChatSessionList() {
   }, [load]);
 
   const newChat = async () => {
+    if (isVercelHost()) {
+      const session = createVercelSession();
+      router.push(`/chat/${session.id}`);
+      void load();
+      return;
+    }
     const res = await fetch("/api/chat/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -60,17 +84,25 @@ export function ChatSessionList() {
 
   const deleteSession = async (id: string) => {
     if (!confirm("Delete this chat?")) return;
-    await fetch(`/api/chat/sessions/${id}`, { method: "DELETE" });
+    if (isVercelHost()) {
+      deleteVercelSession(id);
+    } else {
+      await fetch(`/api/chat/sessions/${id}`, { method: "DELETE" });
+    }
     if (pathname.includes(id)) router.push("/chat");
     void load();
   };
 
   const archiveSession = async (id: string) => {
-    await fetch(`/api/chat/sessions/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ archived: true }),
-    });
+    if (isVercelHost()) {
+      updateVercelSession(id, { archived: true });
+    } else {
+      await fetch(`/api/chat/sessions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+    }
     if (pathname.includes(id)) router.push("/chat");
     void load();
   };
@@ -78,11 +110,15 @@ export function ChatSessionList() {
   const renameSession = async (id: string, title: string) => {
     const next = prompt("Rename chat", title);
     if (!next?.trim()) return;
-    await fetch(`/api/chat/sessions/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: next.trim() }),
-    });
+    if (isVercelHost()) {
+      updateVercelSession(id, { title: next.trim() });
+    } else {
+      await fetch(`/api/chat/sessions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: next.trim() }),
+      });
+    }
     void load();
   };
 

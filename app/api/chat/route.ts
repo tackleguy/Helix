@@ -1,6 +1,6 @@
 import { apiError, parseJsonBody } from "@/lib/api";
 import { logServer } from "@/lib/logger";
-import { ChatRequestSchema } from "@/lib/chat/types";
+import { ChatRequestSchema, type ChatRequest } from "@/lib/chat/types";
 import {
   buildUserContent,
   processAttachments,
@@ -30,6 +30,119 @@ function titleFromFirstMessage(text: string) {
   return t.length > 40 ? t.slice(0, 40) + "…" : t;
 }
 
+function sseStream(
+  assistantId: string,
+  backend: { id: string; model: string },
+  model: string,
+  result: Awaited<ReturnType<typeof streamChat>>["result"],
+  prefix = "",
+  onDone?: (content: string) => void,
+) {
+  const encoder = new TextEncoder();
+  let acc = prefix;
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: "meta", assistantId, backend: backend.id, model })}\n\n`,
+        ),
+      );
+      try {
+        for await (const chunk of result.textStream) {
+          acc += chunk;
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "delta", text: chunk })}\n\n`,
+            ),
+          );
+        }
+        onDone?.(acc);
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "done", tokensOut: estimateTokens(acc) })}\n\n`,
+          ),
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "stream failed";
+        onDone?.(acc || `_Error: ${msg}_`);
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "error", error: msg })}\n\n`,
+          ),
+        );
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
+
+async function handleVercelChat(data: ChatRequest) {
+  const {
+    message,
+    attachments,
+    history = [],
+    model: modelOverride,
+    systemPrompt,
+    continue: shouldContinue,
+  } = data;
+
+  let coreMessages = [...history];
+
+  if (shouldContinue) {
+    const last = coreMessages.at(-1);
+    if (!last || last.role !== "assistant") {
+      return apiError("nothing to continue", 400, "NO_ASSISTANT");
+    }
+  } else {
+    const hasPayload =
+      (message !== undefined && message.trim().length > 0) ||
+      (attachments !== undefined && attachments.length > 0);
+    if (!hasPayload) {
+      return apiError("empty message", 400, "EMPTY_MESSAGE");
+    }
+    const processed = attachments?.length
+      ? await processAttachments(attachments)
+      : [];
+    const content = buildUserContent(message ?? "", processed);
+    coreMessages = [...coreMessages, { role: "user" as const, content }];
+  }
+
+  if (coreMessages.length === 0) {
+    return apiError("no messages to respond to", 400, "NO_MESSAGES");
+  }
+
+  const assistantId = uid();
+  const prefix =
+    shouldContinue && coreMessages.at(-1)?.role === "assistant"
+      ? coreMessages.at(-1)!.content
+      : "";
+
+  const system =
+    systemPrompt?.trim() ||
+    resolveSystemPrompt({
+      sessionModel: modelOverride,
+      sessionSystemPrompt: systemPrompt,
+    });
+
+  const { result, backend, model } = await streamChat({
+    model: resolveCloudModelId(modelOverride),
+    system,
+    messages: coreMessages,
+  });
+
+  return sseStream(assistantId, backend, model, result, prefix);
+}
+
 export async function POST(req: Request) {
   const parsed = await parseJsonBody(req, ChatRequestSchema);
   if ("error" in parsed) return parsed.error;
@@ -49,6 +162,21 @@ export async function POST(req: Request) {
       503,
       "CLOUD_NO_BACKEND",
     );
+  }
+
+  if (isVercelDeploy()) {
+    try {
+      return await handleVercelChat(parsed.data);
+    } catch (err) {
+      logServer("error", "vercel chat stream failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return apiError(
+        err instanceof Error ? err.message : "chat failed",
+        502,
+        "CHAT_FAILED",
+      );
+    }
   }
 
   try {
@@ -176,56 +304,11 @@ export async function POST(req: Request) {
       updateSession(sessionId, { model });
     }
 
-    const encoder = new TextEncoder();
-    let acc = prefix;
-
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "meta", assistantId, backend: backend.id, model })}\n\n`,
-          ),
-        );
-
-        try {
-          for await (const chunk of result.textStream) {
-            acc += chunk;
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ type: "delta", text: chunk })}\n\n`,
-              ),
-            );
-          }
-          const tokensOut = estimateTokens(acc);
-          updateMessage(assistantId, { content: acc, tokensOut });
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: "done", tokensOut })}\n\n`,
-            ),
-          );
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "stream failed";
-          updateMessage(assistantId, {
-            content: acc || `_Error: ${msg}_`,
-            tokensOut: estimateTokens(acc),
-          });
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: "error", error: msg })}\n\n`,
-            ),
-          );
-        } finally {
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
+    return sseStream(assistantId, backend, model, result, prefix, (acc) => {
+      updateMessage(assistantId, {
+        content: acc,
+        tokensOut: estimateTokens(acc),
+      });
     });
   } catch (err) {
     logServer("error", "chat stream failed", {
