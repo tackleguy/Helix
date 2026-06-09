@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { groupSessions, type SessionListItem } from "@/lib/chat/session-buckets";
-import { isVercelHost } from "@/lib/chat/vercel-host";
+import { detectCloudClient, isCloudClient } from "@/lib/chat/cloud-client";
 import {
   createVercelSession,
   deleteVercelSession,
@@ -27,7 +27,8 @@ export function ChatSessionList() {
   const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
-    if (isVercelHost()) {
+    const cloud = isCloudClient() || (await detectCloudClient());
+    if (cloud) {
       setLoadError(false);
       setSessions(
         listVercelSessions().map((s) => ({
@@ -64,7 +65,8 @@ export function ChatSessionList() {
   }, [load]);
 
   const newChat = async () => {
-    if (isVercelHost()) {
+    const cloud = isCloudClient() || (await detectCloudClient());
+    if (cloud) {
       const session = createVercelSession();
       router.push(`/chat/${session.id}`);
       void load();
@@ -84,7 +86,8 @@ export function ChatSessionList() {
 
   const deleteSession = async (id: string) => {
     if (!confirm("Delete this chat?")) return;
-    if (isVercelHost()) {
+    const cloud = isCloudClient() || (await detectCloudClient());
+    if (cloud) {
       deleteVercelSession(id);
     } else {
       await fetch(`/api/chat/sessions/${id}`, { method: "DELETE" });
@@ -94,7 +97,8 @@ export function ChatSessionList() {
   };
 
   const archiveSession = async (id: string) => {
-    if (isVercelHost()) {
+    const cloud = isCloudClient() || (await detectCloudClient());
+    if (cloud) {
       updateVercelSession(id, { archived: true });
     } else {
       await fetch(`/api/chat/sessions/${id}`, {
@@ -110,7 +114,8 @@ export function ChatSessionList() {
   const renameSession = async (id: string, title: string) => {
     const next = prompt("Rename chat", title);
     if (!next?.trim()) return;
-    if (isVercelHost()) {
+    const cloud = isCloudClient() || (await detectCloudClient());
+    if (cloud) {
       updateVercelSession(id, { title: next.trim() });
     } else {
       await fetch(`/api/chat/sessions/${id}`, {

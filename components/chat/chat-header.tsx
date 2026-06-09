@@ -4,7 +4,7 @@ import { Settings2 } from "lucide-react";
 import type { ChatMessageDto } from "@/lib/chat/types";
 import { sumMessageTokens } from "@/lib/chat/tokens";
 import { isStudyModel } from "@/lib/study/constants";
-import { isVercelHost } from "@/lib/chat/vercel-host";
+import { isCloudClient } from "@/lib/chat/cloud-client";
 import { ModelPicker } from "./model-picker";
 
 interface ChatHeaderProps {
@@ -30,7 +30,7 @@ export function ChatHeader({
       ? "cloud · HF"
       : backend === "openai"
         ? "cloud · AI"
-        : isVercelHost()
+        : isCloudClient()
           ? "cloud"
           : "local · free";
 

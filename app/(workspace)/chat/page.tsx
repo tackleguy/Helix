@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isVercelHost } from "@/lib/chat/vercel-host";
+import { detectCloudClient, isCloudClient } from "@/lib/chat/cloud-client";
 import {
   createVercelSession,
   listVercelSessions,
@@ -16,7 +16,8 @@ export default function ChatIndexPage() {
 
     async function boot() {
       try {
-        if (isVercelHost()) {
+        const cloud = isCloudClient() || (await detectCloudClient());
+        if (cloud) {
           const existing = listVercelSessions()[0];
           if (existing && !cancelled) {
             router.replace(`/chat/${existing.id}`);
@@ -50,7 +51,13 @@ export default function ChatIndexPage() {
         };
         if (!cancelled) router.replace(`/chat/${session.id}`);
       } catch {
-        if (!cancelled) router.replace("/");
+        if (!cancelled) {
+          const cloud = isCloudClient() || (await detectCloudClient());
+          if (cloud) {
+            const session = createVercelSession();
+            router.replace(`/chat/${session.id}`);
+          }
+        }
       }
     }
 

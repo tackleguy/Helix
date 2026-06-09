@@ -7,18 +7,41 @@ import { DEFAULT_HF_MODEL } from "@/src/services/ai/types";
 const SESSIONS_KEY = "helix:vercel:sessions";
 const messagesKey = (id: string) => `helix:vercel:messages:${id}`;
 
+let memorySessions: SessionDto[] = [];
+const memoryMessages = new Map<string, ChatMessageDto[]>();
+
+function canUseLocalStorage(): boolean {
+  try {
+    const k = "__helix_ls_test__";
+    localStorage.setItem(k, "1");
+    localStorage.removeItem(k);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const useStorage = typeof window !== "undefined" && canUseLocalStorage();
+
 function readSessions(): SessionDto[] {
   if (typeof window === "undefined") return [];
+  if (!useStorage) return memorySessions;
   try {
     const raw = localStorage.getItem(SESSIONS_KEY);
     return raw ? (JSON.parse(raw) as SessionDto[]) : [];
   } catch {
-    return [];
+    return memorySessions;
   }
 }
 
 function writeSessions(sessions: SessionDto[]) {
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  memorySessions = sessions;
+  if (!useStorage) return;
+  try {
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  } catch {
+    /* memory only */
+  }
 }
 
 export function listVercelSessions(): SessionDto[] {
@@ -31,27 +54,13 @@ export function getVercelSession(id: string): SessionDto | null {
   return readSessions().find((s) => s.id === id) ?? null;
 }
 
-export function getVercelMessages(sessionId: string): ChatMessageDto[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(messagesKey(sessionId));
-    return raw ? (JSON.parse(raw) as ChatMessageDto[]) : [];
-  } catch {
-    return [];
-  }
-}
+export function ensureVercelSession(id: string): SessionDto {
+  const existing = getVercelSession(id);
+  if (existing) return existing;
 
-export function saveVercelMessages(
-  sessionId: string,
-  messages: ChatMessageDto[],
-) {
-  localStorage.setItem(messagesKey(sessionId), JSON.stringify(messages));
-}
-
-export function createVercelSession(): SessionDto {
   const now = Date.now();
   const session: SessionDto = {
-    id: uid(),
+    id,
     title: "New chat",
     model: DEFAULT_HF_MODEL,
     systemPrompt: null,
@@ -62,6 +71,34 @@ export function createVercelSession(): SessionDto {
   writeSessions([session, ...readSessions()]);
   saveVercelMessages(session.id, []);
   return session;
+}
+
+export function getVercelMessages(sessionId: string): ChatMessageDto[] {
+  if (typeof window === "undefined") return [];
+  if (!useStorage) return memoryMessages.get(sessionId) ?? [];
+  try {
+    const raw = localStorage.getItem(messagesKey(sessionId));
+    return raw ? (JSON.parse(raw) as ChatMessageDto[]) : [];
+  } catch {
+    return memoryMessages.get(sessionId) ?? [];
+  }
+}
+
+export function saveVercelMessages(
+  sessionId: string,
+  messages: ChatMessageDto[],
+) {
+  memoryMessages.set(sessionId, messages);
+  if (!useStorage) return;
+  try {
+    localStorage.setItem(messagesKey(sessionId), JSON.stringify(messages));
+  } catch {
+    /* memory only */
+  }
+}
+
+export function createVercelSession(): SessionDto {
+  return ensureVercelSession(uid());
 }
 
 export function updateVercelSession(
@@ -81,7 +118,29 @@ export function updateVercelSession(
 
 export function deleteVercelSession(id: string) {
   writeSessions(readSessions().filter((s) => s.id !== id));
-  localStorage.removeItem(messagesKey(id));
+  memoryMessages.delete(id);
+  if (useStorage) {
+    try {
+      localStorage.removeItem(messagesKey(id));
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function clearVercelSessions() {
+  const ids = readSessions().map((s) => s.id);
+  writeSessions([]);
+  for (const id of ids) {
+    memoryMessages.delete(id);
+    if (useStorage) {
+      try {
+        localStorage.removeItem(messagesKey(id));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 }
 
 export function touchVercelSessionTitle(sessionId: string, title: string) {

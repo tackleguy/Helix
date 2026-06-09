@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { isVercelHost } from "@/lib/chat/vercel-host";
+import { detectCloudClient, isCloudClient } from "@/lib/chat/cloud-client";
 
 interface CloudStatus {
   cloudChat: boolean;
@@ -22,16 +22,18 @@ interface BackendModels {
 export function ServicesBanner() {
   const [cloud, setCloud] = useState<CloudStatus | null>(null);
   const [localOnline, setLocalOnline] = useState<boolean | null>(null);
-  const onVercel = isVercelHost();
+  const [onCloud, setOnCloud] = useState(isCloudClient());
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      const cloud = isCloudClient() || (await detectCloudClient());
+      if (!cancelled) setOnCloud(cloud);
       try {
         const [cloudRes, modelsRes, servicesRes] = await Promise.all([
           fetch("/api/cloud-status", { cache: "no-store" }),
           fetch("/api/models", { cache: "no-store" }),
-          onVercel
+          cloud
             ? Promise.resolve(null)
             : fetch("/api/services/status", { cache: "no-store" }),
         ]);
@@ -43,7 +45,7 @@ export function ServicesBanner() {
         if (!cancelled && modelsRes.ok) {
           const data = (await modelsRes.json()) as { backends: BackendModels[] };
           const anyOnline = (data.backends ?? []).some((b) => b.online);
-          if (onVercel) {
+          if (cloud) {
             setLocalOnline(anyOnline);
           }
         }
@@ -67,9 +69,9 @@ export function ServicesBanner() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [onVercel]);
+  }, []);
 
-  if (onVercel && cloud?.cloudChat && localOnline) {
+  if (onCloud && cloud?.cloudChat && localOnline) {
     return (
       <div className="flex items-start gap-2 border-b border-helix/15 bg-helix/5 px-4 py-2.5 text-xs text-helix/90">
         <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
@@ -87,7 +89,7 @@ export function ServicesBanner() {
     );
   }
 
-  if (onVercel && !cloud?.cloudChat) {
+  if (onCloud && !cloud?.cloudChat) {
     return (
       <div className="flex items-start gap-2 border-b border-violet-400/15 bg-violet-400/5 px-4 py-2.5 text-xs text-violet-100/90">
         <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-violet-300/80" />

@@ -11,6 +11,11 @@ import {
   type SetStateAction,
 } from "react";
 import { useRouter } from "next/navigation";
+import { detectCloudClient, isCloudClient } from "@/lib/chat/cloud-client";
+import {
+  clearVercelSessions,
+  createVercelSession,
+} from "@/lib/chat/vercel-client-store";
 
 interface WorkspaceContextValue {
   sidebarOpen: boolean;
@@ -37,6 +42,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     async (action: string) => {
       switch (action) {
         case "new-chat": {
+          const cloud = isCloudClient() || (await detectCloudClient());
+          if (cloud) {
+            const session = createVercelSession();
+            router.push(`/chat/${session.id}`);
+            break;
+          }
           const res = await fetch("/api/chat/sessions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -57,6 +68,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             )
           ) {
             return;
+          }
+          const cloud = isCloudClient() || (await detectCloudClient());
+          if (cloud) {
+            clearVercelSessions();
+            const session = createVercelSession();
+            router.push(`/chat/${session.id}`);
+            break;
           }
           await fetch("/api/chat/sessions", {
             method: "DELETE",

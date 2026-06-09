@@ -9,10 +9,10 @@ import { SystemPromptPanel } from "./system-prompt-panel";
 import { ServicesBanner } from "./services-banner";
 import { TopBar } from "@/components/workspace/layout";
 import type { ChatMessageDto, SessionDto } from "@/lib/chat/types";
-import { isVercelHost } from "@/lib/chat/vercel-host";
+import { detectCloudClient, isCloudClient } from "@/lib/chat/cloud-client";
 import {
+  ensureVercelSession,
   getVercelMessages,
-  getVercelSession,
   saveVercelMessages,
   touchVercelSessionTitle,
   updateVercelSession,
@@ -35,12 +35,9 @@ export function ChatView({ sessionId }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    if (isVercelHost()) {
-      const local = getVercelSession(sessionId);
-      if (!local) {
-        router.replace("/chat");
-        return;
-      }
+    const cloud = isCloudClient() || (await detectCloudClient());
+    if (cloud) {
+      const local = ensureVercelSession(sessionId);
       setSession(local);
       setMessages(getVercelMessages(sessionId));
       return;
@@ -96,7 +93,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const onVercel = isVercelHost();
+    const onVercel = isCloudClient() || (await detectCloudClient());
     let workingMessages = [...messages];
 
     try {
@@ -237,7 +234,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
       tokensOut: null,
       createdAt: Date.now(),
     };
-    if (isVercelHost()) {
+    if (isCloudClient()) {
       const next = [...messages, userMsg];
       setMessages(next);
       saveVercelMessages(sessionId, next);
@@ -269,7 +266,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
   const onStop = () => abortRef.current?.abort();
 
   const saveSystemPrompt = async (systemPrompt: string) => {
-    if (isVercelHost()) {
+    if (isCloudClient()) {
       updateVercelSession(sessionId, {
         systemPrompt: systemPrompt || null,
       });
@@ -287,7 +284,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
   };
 
   const saveModel = async (modelId: string) => {
-    if (isVercelHost()) {
+    if (isCloudClient()) {
       updateVercelSession(sessionId, { model: modelId });
       setSession((s) => (s ? { ...s, model: modelId } : s));
       return;
@@ -325,7 +322,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
           {messages.length === 0 && !streaming && (
             <div className="py-20 text-center">
               <h2 className="wordmark text-3xl text-white/75">Helix</h2>
-              {isVercelHost() ? (
+              {isCloudClient() ? (
                 <>
                   <p className="mt-2 text-sm text-white/35">
                     Cloud AI · streaming · productivity coach
@@ -376,7 +373,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
         <div className="mx-auto mb-2 max-w-2xl rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-xs text-red-300/90">
           {error}
           <span className="block text-white/35">
-            {isVercelHost()
+            {isCloudClient()
               ? "Check HF_API_KEY in Vercel env settings and redeploy."
               : "Start LM Studio, Ollama, or llama-server — then check Settings → Services."}
           </span>
