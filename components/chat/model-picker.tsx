@@ -45,6 +45,12 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
     b.online ? b.models.map((m) => ({ ...m, backend: b.backend })) : [],
   );
 
+  useEffect(() => {
+    if (!value && onlineModels[0]?.id) {
+      onChange(onlineModels[0].id);
+    }
+  }, [value, onlineModels, onChange]);
+
   const label =
     value ??
     (onlineModels[0]?.id
@@ -67,7 +73,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
         )}
         title={
           onlineModels.length === 0
-            ? "Start a local chat backend to select a model"
+            ? "No models available — check HF_API_KEY on Vercel or start a local backend"
             : "Select model"
         }
       >

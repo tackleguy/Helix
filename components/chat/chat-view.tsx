@@ -9,6 +9,7 @@ import { SystemPromptPanel } from "./system-prompt-panel";
 import { ServicesBanner } from "./services-banner";
 import { TopBar } from "@/components/workspace/layout";
 import type { ChatMessageDto, SessionDto } from "@/lib/chat/types";
+import { isVercelHost } from "@/lib/chat/vercel-host";
 
 interface ChatViewProps {
   sessionId: string;
@@ -240,13 +241,27 @@ export function ChatView({ sessionId }: ChatViewProps) {
           {messages.length === 0 && !streaming && (
             <div className="py-20 text-center">
               <h2 className="wordmark text-3xl text-white/75">Helix</h2>
-              <p className="mt-2 text-sm text-white/35">
-                Local models · streaming · your data stays on device
-              </p>
-              <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-white/30">
-                Start Ollama, LM Studio, or llama-server on this machine, then
-                pick a model above. Helix never sends your data to the cloud.
-              </p>
+              {isVercelHost() ? (
+                <>
+                  <p className="mt-2 text-sm text-white/35">
+                    Cloud AI · streaming · productivity coach
+                  </p>
+                  <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-white/30">
+                    Pick a model above and send a message. Helix runs on
+                    Hugging Face inference in the cloud.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-white/35">
+                    Local models · streaming · your data stays on device
+                  </p>
+                  <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-white/30">
+                    Start Ollama, LM Studio, or llama-server on this machine,
+                    then pick a model above.
+                  </p>
+                </>
+              )}
             </div>
           )}
           {messages.map((m) => (
@@ -277,8 +292,9 @@ export function ChatView({ sessionId }: ChatViewProps) {
         <div className="mx-auto mb-2 max-w-2xl rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-xs text-red-300/90">
           {error}
           <span className="block text-white/35">
-            Start LM Studio, Ollama, or llama-server — then check Settings →
-            Services.
+            {isVercelHost()
+              ? "Check HF_API_KEY in Vercel env settings and redeploy."
+              : "Start LM Studio, Ollama, or llama-server — then check Settings → Services."}
           </span>
         </div>
       )}

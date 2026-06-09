@@ -4,6 +4,7 @@ import { Settings2 } from "lucide-react";
 import type { ChatMessageDto } from "@/lib/chat/types";
 import { sumMessageTokens } from "@/lib/chat/tokens";
 import { isStudyModel } from "@/lib/study/constants";
+import { isVercelHost } from "@/lib/chat/vercel-host";
 import { ModelPicker } from "./model-picker";
 
 interface ChatHeaderProps {
@@ -24,6 +25,14 @@ export function ChatHeader({
   onModelChange,
 }: ChatHeaderProps) {
   const { in: tokensIn, out: tokensOut } = sumMessageTokens(messages);
+  const modeLabel =
+    backend === "huggingface"
+      ? "cloud · HF"
+      : backend === "openai"
+        ? "cloud · AI"
+        : isVercelHost()
+          ? "cloud"
+          : "local · free";
 
   return (
     <header className="flex h-11 flex-shrink-0 items-center gap-3 border-b border-white/[0.06] px-3">
@@ -38,7 +47,7 @@ export function ChatHeader({
           {tokensIn + tokensOut} tok
         </span>
         <span className="rounded-full border border-white/[0.06] px-2 py-0.5 text-helix/80">
-          local · free
+          {modeLabel}
         </span>
         <ModelPicker value={model} onChange={onModelChange} />
         {backend && (
