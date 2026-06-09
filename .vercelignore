@@ -1,0 +1,7 @@
+node_modules
+.next
+finetune/outputs
+finetune/gguf
+finetune/.venv
+finetune/**/*.gguf
+.git
