@@ -24,7 +24,7 @@ interface ChatViewProps {
 }
 
 export function ChatView({ sessionId }: ChatViewProps) {
-  const { onCloud: cloudUi, cloudChat } = useCloudMode();
+  const { onCloud: cloudUi, cloudChat, defaultModel } = useCloudMode();
   const router = useRouter();
   const [session, setSession] = useState<SessionDto | null>(null);
   const [messages, setMessages] = useState<ChatMessageDto[]>([]);
@@ -112,7 +112,8 @@ export function ChatView({ sessionId }: ChatViewProps) {
           }
         }
         payload.history = toApiHistory(workingMessages);
-        payload.model = session?.model ?? undefined;
+        payload.model =
+          session?.model ?? defaultModel ?? undefined;
         payload.systemPrompt = session?.systemPrompt ?? null;
       }
 
@@ -236,7 +237,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
       tokensOut: null,
       createdAt: Date.now(),
     };
-    if (isCloudClient()) {
+    if (cloudUi) {
       const next = [...messages, userMsg];
       setMessages(next);
       saveVercelMessages(sessionId, next);
@@ -268,7 +269,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
   const onStop = () => abortRef.current?.abort();
 
   const saveSystemPrompt = async (systemPrompt: string) => {
-    if (isCloudClient()) {
+    if (cloudUi) {
       updateVercelSession(sessionId, {
         systemPrompt: systemPrompt || null,
       });
@@ -286,7 +287,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
   };
 
   const saveModel = async (modelId: string) => {
-    if (isCloudClient()) {
+    if (cloudUi) {
       updateVercelSession(sessionId, { model: modelId });
       setSession((s) => (s ? { ...s, model: modelId } : s));
       return;

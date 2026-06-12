@@ -1,6 +1,9 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
-import { resolveChatBackend } from "@/lib/chat/backends";
+import {
+  hasOnlineLocalChatBackend,
+  resolveChatBackend,
+} from "@/lib/chat/backends";
 import {
   hasCloudChat,
   hasHuggingFaceChat,
@@ -127,6 +130,14 @@ export async function streamWithProvider(
 ): Promise<AIStreamOutput> {
   const enriched = withSystemPrompt(input);
   let providerId = resolveProviderForRequest();
+
+  if (providerId === "local" && hasHuggingFaceChat()) {
+    const anyLocal = await hasOnlineLocalChatBackend();
+    if (!anyLocal) {
+      logServer("info", "no local backend online, using huggingface", {});
+      providerId = "huggingface";
+    }
+  }
 
   if (providerId === "local") {
     try {

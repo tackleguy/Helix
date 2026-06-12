@@ -5,6 +5,15 @@ import type { ChatBackendId } from "./types";
 
 const ORDER: ChatBackendId[] = ["llama-server", "ollama", "lmstudio"];
 
+/** Quick check — avoids slow listModels when nothing local is running. */
+export async function hasOnlineLocalChatBackend(): Promise<boolean> {
+  for (const id of ORDER) {
+    const health = await getServiceHealth(id);
+    if (health.online) return true;
+  }
+  return false;
+}
+
 export interface ResolvedBackend {
   id: ChatBackendId;
   baseUrl: string;

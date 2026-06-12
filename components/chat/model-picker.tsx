@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCloudMode } from "@/lib/chat/cloud-mode-context";
@@ -23,6 +23,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
   const [open, setOpen] = useState(false);
   const [backends, setBackends] = useState<BackendModels[]>([]);
   const [loading, setLoading] = useState(true);
+  const pickedRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,22 +44,28 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
     return () => clearInterval(t);
   }, [load]);
 
-  const onlineModels = backends.flatMap((b) =>
-    b.online ? b.models.map((m) => ({ ...m, backend: b.backend })) : [],
+  const onlineModels = useMemo(
+    () =>
+      backends.flatMap((b) =>
+        b.online ? b.models.map((m) => ({ ...m, backend: b.backend })) : [],
+      ),
+    [backends],
   );
 
-  const fallbackModel =
-    onCloud && cloudChat && defaultModel ? defaultModel : null;
-  const effectiveModels =
-    onlineModels.length > 0
-      ? onlineModels
-      : fallbackModel
-        ? [{ id: fallbackModel, backend: "huggingface" }]
-        : [];
+  const fallbackModel = cloudChat && defaultModel ? defaultModel : null;
+
+  const effectiveModels = useMemo(() => {
+    if (onlineModels.length > 0) return onlineModels;
+    if (fallbackModel) {
+      return [{ id: fallbackModel, backend: "huggingface" as const }];
+    }
+    return [];
+  }, [onlineModels, fallbackModel]);
 
   useEffect(() => {
     const pick = effectiveModels[0]?.id;
-    if (!value && pick) {
+    if (!value && pick && pickedRef.current !== pick) {
+      pickedRef.current = pick;
       onChange(pick);
     }
   }, [value, effectiveModels, onChange]);
@@ -70,6 +77,22 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
       : loading
         ? "Loading…"
         : "No model");
+
+  const dropdownBackends = useMemo(() => {
+    if (backends.some((b) => b.online && b.models.length > 0)) {
+      return backends;
+    }
+    if (fallbackModel) {
+      return [
+        {
+          backend: "huggingface",
+          online: true,
+          models: [{ id: fallbackModel }],
+        },
+      ];
+    }
+    return backends;
+  }, [backends, fallbackModel]);
 
   return (
     <div className={cn("relative", className)}>
@@ -87,7 +110,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
           effectiveModels.length === 0
             ? onCloud
               ? "Add HF_API_KEY in Vercel env settings and redeploy"
-              : "No models available — start Ollama, LM Studio, or llama-server"
+              : "Set HF_API_KEY in .env.local or start a local backend"
             : "Select model"
         }
       >
@@ -104,7 +127,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
             onClick={() => setOpen(false)}
           />
           <div className="absolute right-0 top-full z-50 mt-1 max-h-56 w-64 overflow-y-auto rounded-lg border border-white/[0.08] bg-ink-900 py-1 shadow-xl scrollbar-thin">
-            {backends.map((b) => (
+            {dropdownBackends.map((b) => (
               <div key={b.backend}>
                 <p className="px-2.5 py-1 text-[10px] uppercase tracking-wider text-white/25">
                   {b.backend}

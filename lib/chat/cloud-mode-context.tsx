@@ -44,11 +44,6 @@ export function CloudModeProvider({ children }: { children: ReactNode }) {
       const onCloud = isCloudClient() || (await detectCloudClient());
       if (cancelled) return;
 
-      if (!onCloud) {
-        setState({ ...defaultState, onCloud: false, ready: true });
-        return;
-      }
-
       try {
         const res = await fetch("/api/cloud-status", { cache: "no-store" });
         if (res.ok) {
@@ -60,7 +55,7 @@ export function CloudModeProvider({ children }: { children: ReactNode }) {
           };
           if (!cancelled) {
             setState({
-              onCloud: true,
+              onCloud,
               ready: true,
               cloudChat: Boolean(data.cloudChat),
               huggingface: Boolean(data.huggingface),
@@ -76,7 +71,7 @@ export function CloudModeProvider({ children }: { children: ReactNode }) {
 
       if (!cancelled) {
         setState({
-          onCloud: true,
+          onCloud,
           ready: true,
           cloudChat: false,
           huggingface: false,
