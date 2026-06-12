@@ -23,6 +23,11 @@ export default function WorkspaceError({
         </a>{" "}
         in your browser.
       </p>
+      {error.message ? (
+        <p className="max-w-md font-mono text-[11px] text-red-300/80">
+          {error.message}
+        </p>
+      ) : null}
       <button
         type="button"
         onClick={() => reset()}

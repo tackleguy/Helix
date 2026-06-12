@@ -7,7 +7,7 @@ import { Message } from "./message";
 import { ChatHeader } from "./chat-header";
 import { SystemPromptPanel } from "./system-prompt-panel";
 import { ServicesBanner } from "./services-banner";
-import { TopBar } from "@/components/workspace/layout";
+import { TopBar } from "@/components/workspace/topbar";
 import type { ChatMessageDto, SessionDto } from "@/lib/chat/types";
 import { detectCloudClient, isCloudClient } from "@/lib/chat/cloud-client";
 import { useCloudMode } from "@/lib/chat/cloud-mode-context";
@@ -286,19 +286,22 @@ export function ChatView({ sessionId }: ChatViewProps) {
     await load();
   };
 
-  const saveModel = async (modelId: string) => {
-    if (cloudUi) {
-      updateVercelSession(sessionId, { model: modelId });
+  const saveModel = useCallback(
+    async (modelId: string) => {
+      if (cloudUi) {
+        updateVercelSession(sessionId, { model: modelId });
+        setSession((s) => (s ? { ...s, model: modelId } : s));
+        return;
+      }
+      await fetch(`/api/chat/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: modelId }),
+      });
       setSession((s) => (s ? { ...s, model: modelId } : s));
-      return;
-    }
-    await fetch(`/api/chat/sessions/${sessionId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: modelId }),
-    });
-    setSession((s) => (s ? { ...s, model: modelId } : s));
-  };
+    },
+    [cloudUi, sessionId],
+  );
 
   const lastAssistantId = [...messages]
     .reverse()

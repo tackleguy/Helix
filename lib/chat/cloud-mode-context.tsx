@@ -32,10 +32,8 @@ const defaultState: CloudModeState = {
 const CloudModeContext = createContext<CloudModeState>(defaultState);
 
 export function CloudModeProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<CloudModeState>(() => ({
-    ...defaultState,
-    onCloud: isCloudClient(),
-  }));
+  // Never call isCloudClient() in useState — it differs between SSR and browser.
+  const [state, setState] = useState<CloudModeState>(defaultState);
 
   useEffect(() => {
     let cancelled = false;

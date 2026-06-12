@@ -24,6 +24,8 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
   const [backends, setBackends] = useState<BackendModels[]>([]);
   const [loading, setLoading] = useState(true);
   const pickedRef = useRef<string | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -66,9 +68,9 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
     const pick = effectiveModels[0]?.id;
     if (!value && pick && pickedRef.current !== pick) {
       pickedRef.current = pick;
-      onChange(pick);
+      onChangeRef.current(pick);
     }
-  }, [value, effectiveModels, onChange]);
+  }, [value, effectiveModels]);
 
   const label =
     value ??
