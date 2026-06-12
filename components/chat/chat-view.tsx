@@ -10,6 +10,7 @@ import { ServicesBanner } from "./services-banner";
 import { TopBar } from "@/components/workspace/layout";
 import type { ChatMessageDto, SessionDto } from "@/lib/chat/types";
 import { detectCloudClient, isCloudClient } from "@/lib/chat/cloud-client";
+import { useCloudMode } from "@/lib/chat/cloud-mode-context";
 import {
   ensureVercelSession,
   getVercelMessages,
@@ -23,6 +24,7 @@ interface ChatViewProps {
 }
 
 export function ChatView({ sessionId }: ChatViewProps) {
+  const { onCloud: cloudUi, cloudChat } = useCloudMode();
   const router = useRouter();
   const [session, setSession] = useState<SessionDto | null>(null);
   const [messages, setMessages] = useState<ChatMessageDto[]>([]);
@@ -322,16 +324,28 @@ export function ChatView({ sessionId }: ChatViewProps) {
           {messages.length === 0 && !streaming && (
             <div className="py-20 text-center">
               <h2 className="wordmark text-3xl text-white/75">Helix</h2>
-              {isCloudClient() ? (
-                <>
-                  <p className="mt-2 text-sm text-white/35">
-                    Cloud AI · streaming · productivity coach
-                  </p>
-                  <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-white/30">
-                    Pick a model above and send a message. Helix runs on
-                    Hugging Face inference in the cloud.
-                  </p>
-                </>
+              {cloudUi ? (
+                cloudChat ? (
+                  <>
+                    <p className="mt-2 text-sm text-white/35">
+                      Cloud AI · streaming · productivity coach
+                    </p>
+                    <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-white/30">
+                      Pick a model above and send a message. Helix runs on
+                      Hugging Face inference in the cloud.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm text-white/35">
+                      Cloud deploy · AI not configured yet
+                    </p>
+                    <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-white/30">
+                      Add HF_API_KEY in Vercel environment variables, redeploy,
+                      then refresh this page.
+                    </p>
+                  </>
+                )
               ) : (
                 <>
                   <p className="mt-2 text-sm text-white/35">
@@ -373,7 +387,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
         <div className="mx-auto mb-2 max-w-2xl rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-xs text-red-300/90">
           {error}
           <span className="block text-white/35">
-            {isCloudClient()
+            {cloudUi
               ? "Check HF_API_KEY in Vercel env settings and redeploy."
               : "Start LM Studio, Ollama, or llama-server — then check Settings → Services."}
           </span>

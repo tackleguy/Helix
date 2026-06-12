@@ -4,7 +4,7 @@ import { Settings2 } from "lucide-react";
 import type { ChatMessageDto } from "@/lib/chat/types";
 import { sumMessageTokens } from "@/lib/chat/tokens";
 import { isStudyModel } from "@/lib/study/constants";
-import { isCloudClient } from "@/lib/chat/cloud-client";
+import { useCloudMode } from "@/lib/chat/cloud-mode-context";
 import { ModelPicker } from "./model-picker";
 
 interface ChatHeaderProps {
@@ -24,15 +24,20 @@ export function ChatHeader({
   onOpenSystemPrompt,
   onModelChange,
 }: ChatHeaderProps) {
+  const { onCloud, cloudChat, huggingface } = useCloudMode();
   const { in: tokensIn, out: tokensOut } = sumMessageTokens(messages);
   const modeLabel =
     backend === "huggingface"
       ? "cloud · HF"
       : backend === "openai"
         ? "cloud · AI"
-        : isCloudClient()
-          ? "cloud"
-          : "local · free";
+        : onCloud && cloudChat
+          ? huggingface
+            ? "cloud · HF"
+            : "cloud"
+          : onCloud
+            ? "cloud · setup"
+            : "local · free";
 
   return (
     <header className="flex h-11 flex-shrink-0 items-center gap-3 border-b border-white/[0.06] px-3">

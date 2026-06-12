@@ -3,75 +3,64 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { detectCloudClient, isCloudClient } from "@/lib/chat/cloud-client";
-
-interface CloudStatus {
-  cloudChat: boolean;
-  huggingface: boolean;
-  openai: boolean;
-  defaultModel: string | null;
-}
+import { useCloudMode } from "@/lib/chat/cloud-mode-context";
 
 interface BackendModels {
   backend: string;
   online: boolean;
   models: Array<{ id: string }>;
-  error?: string;
 }
 
 export function ServicesBanner() {
-  const [cloud, setCloud] = useState<CloudStatus | null>(null);
-  const [localOnline, setLocalOnline] = useState<boolean | null>(null);
-  const [onCloud, setOnCloud] = useState(isCloudClient());
+  const { onCloud, ready, cloudChat, huggingface, openai, defaultModel } =
+    useCloudMode();
+  const [modelsOnline, setModelsOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (!ready) return;
     let cancelled = false;
+
     const load = async () => {
-      const cloud = isCloudClient() || (await detectCloudClient());
-      if (!cancelled) setOnCloud(cloud);
       try {
-        const [cloudRes, modelsRes, servicesRes] = await Promise.all([
-          fetch("/api/cloud-status", { cache: "no-store" }),
-          fetch("/api/models", { cache: "no-store" }),
-          cloud
-            ? Promise.resolve(null)
-            : fetch("/api/services/status", { cache: "no-store" }),
-        ]);
-
-        if (!cancelled && cloudRes.ok) {
-          setCloud((await cloudRes.json()) as CloudStatus);
-        }
-
-        if (!cancelled && modelsRes.ok) {
-          const data = (await modelsRes.json()) as { backends: BackendModels[] };
-          const anyOnline = (data.backends ?? []).some((b) => b.online);
-          if (cloud) {
-            setLocalOnline(anyOnline);
+        if (onCloud) {
+          const res = await fetch("/api/models", { cache: "no-store" });
+          if (!cancelled && res.ok) {
+            const data = (await res.json()) as { backends: BackendModels[] };
+            setModelsOnline((data.backends ?? []).some((b) => b.online));
+          } else if (!cancelled) {
+            setModelsOnline(cloudChat);
           }
+          return;
         }
 
-        if (!cancelled && servicesRes?.ok) {
-          const data = (await servicesRes.json()) as {
+        const res = await fetch("/api/services/status", { cache: "no-store" });
+        if (!cancelled && res.ok) {
+          const data = (await res.json()) as {
             services: Array<{ id: string; online: boolean }>;
           };
           const chatIds = new Set(["llama-server", "lmstudio", "ollama"]);
-          setLocalOnline(
+          setModelsOnline(
             data.services.some((s) => chatIds.has(s.id) && s.online),
           );
+        } else if (!cancelled) {
+          setModelsOnline(false);
         }
       } catch {
-        if (!cancelled) setLocalOnline(false);
+        if (!cancelled) setModelsOnline(onCloud ? cloudChat : false);
       }
     };
+
     void load();
     const t = setInterval(() => void load(), 30_000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, []);
+  }, [ready, onCloud, cloudChat]);
 
-  if (onCloud && cloud?.cloudChat && localOnline) {
+  if (!ready) return null;
+
+  if (onCloud && cloudChat && (modelsOnline || defaultModel)) {
     return (
       <div className="flex items-start gap-2 border-b border-helix/15 bg-helix/5 px-4 py-2.5 text-xs text-helix/90">
         <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
@@ -80,16 +69,16 @@ export function ServicesBanner() {
           <p className="mt-0.5 text-helix/70">
             Model:{" "}
             <span className="font-mono text-helix/90">
-              {cloud.defaultModel ?? "configured"}
+              {defaultModel ?? "configured"}
             </span>
-            {cloud.huggingface ? " via Hugging Face" : " via OpenAI"}
+            {huggingface ? " via Hugging Face" : openai ? " via OpenAI" : ""}
           </p>
         </div>
       </div>
     );
   }
 
-  if (onCloud && !cloud?.cloudChat) {
+  if (onCloud && !cloudChat) {
     return (
       <div className="flex items-start gap-2 border-b border-violet-400/15 bg-violet-400/5 px-4 py-2.5 text-xs text-violet-100/90">
         <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-violet-300/80" />
@@ -98,14 +87,15 @@ export function ServicesBanner() {
           <p className="mt-0.5 text-violet-100/60">
             Add{" "}
             <span className="font-mono text-violet-100/75">HF_API_KEY</span> in
-            Vercel → Project → Settings → Environment Variables, then redeploy.
+            Vercel → Project → Settings → Environment Variables (Production +
+            Preview), then redeploy.
           </p>
         </div>
       </div>
     );
   }
 
-  if (localOnline === false && !cloud?.cloudChat) {
+  if (!onCloud && modelsOnline === false) {
     return (
       <div className="flex items-start gap-2 border-b border-amber-400/15 bg-amber-400/5 px-4 py-2.5 text-xs text-amber-100/90">
         <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-300/80" />

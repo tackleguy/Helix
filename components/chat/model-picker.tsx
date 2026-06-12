@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCloudMode } from "@/lib/chat/cloud-mode-context";
 
 interface BackendModels {
   backend: string;
@@ -18,6 +19,7 @@ interface ModelPickerProps {
 }
 
 export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
+  const { onCloud, cloudChat, defaultModel } = useCloudMode();
   const [open, setOpen] = useState(false);
   const [backends, setBackends] = useState<BackendModels[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,16 +47,26 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
     b.online ? b.models.map((m) => ({ ...m, backend: b.backend })) : [],
   );
 
+  const fallbackModel =
+    onCloud && cloudChat && defaultModel ? defaultModel : null;
+  const effectiveModels =
+    onlineModels.length > 0
+      ? onlineModels
+      : fallbackModel
+        ? [{ id: fallbackModel, backend: "huggingface" }]
+        : [];
+
   useEffect(() => {
-    if (!value && onlineModels[0]?.id) {
-      onChange(onlineModels[0].id);
+    const pick = effectiveModels[0]?.id;
+    if (!value && pick) {
+      onChange(pick);
     }
-  }, [value, onlineModels, onChange]);
+  }, [value, effectiveModels, onChange]);
 
   const label =
     value ??
-    (onlineModels[0]?.id
-      ? onlineModels[0].id
+    (effectiveModels[0]?.id
+      ? effectiveModels[0].id
       : loading
         ? "Loading…"
         : "No model");
@@ -64,16 +76,18 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        disabled={onlineModels.length === 0}
+        disabled={effectiveModels.length === 0}
         className={cn(
           "flex max-w-[180px] items-center gap-1 rounded-full border border-white/[0.06] px-2 py-0.5 font-mono text-[11px] transition",
-          onlineModels.length > 0
+          effectiveModels.length > 0
             ? "text-white/55 hover:border-white/[0.12] hover:text-white/80"
             : "cursor-not-allowed text-white/25",
         )}
         title={
-          onlineModels.length === 0
-            ? "No models available — check HF_API_KEY on Vercel or start a local backend"
+          effectiveModels.length === 0
+            ? onCloud
+              ? "Add HF_API_KEY in Vercel env settings and redeploy"
+              : "No models available — start Ollama, LM Studio, or llama-server"
             : "Select model"
         }
       >
@@ -81,7 +95,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
         <ChevronDown className="h-3 w-3 flex-shrink-0 opacity-60" />
       </button>
 
-      {open && onlineModels.length > 0 && (
+      {open && effectiveModels.length > 0 && (
         <>
           <button
             type="button"

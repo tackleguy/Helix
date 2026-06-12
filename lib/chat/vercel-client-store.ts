@@ -56,7 +56,13 @@ export function getVercelSession(id: string): SessionDto | null {
 
 export function ensureVercelSession(id: string): SessionDto {
   const existing = getVercelSession(id);
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.model) {
+      updateVercelSession(id, { model: DEFAULT_CLOUD_MODEL });
+      return { ...existing, model: DEFAULT_CLOUD_MODEL };
+    }
+    return existing;
+  }
 
   const now = Date.now();
   const session: SessionDto = {

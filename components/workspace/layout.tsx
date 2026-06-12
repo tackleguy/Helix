@@ -5,7 +5,7 @@ import { Sidebar } from "./sidebar";
 import { TopBar } from "./topbar";
 import { CommandPalette } from "./command-palette";
 import { MobileDock } from "./mobile-dock";
-import { CloudBootstrap } from "@/components/chat/cloud-bootstrap";
+import { CloudModeProvider } from "@/lib/chat/cloud-mode-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 
 function WorkspaceShell({ children }: { children: React.ReactNode }) {
@@ -40,8 +40,9 @@ function WorkspaceShell({ children }: { children: React.ReactNode }) {
 export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceProvider>
-      <CloudBootstrap />
-      <WorkspaceShell>{children}</WorkspaceShell>
+      <CloudModeProvider>
+        <WorkspaceShell>{children}</WorkspaceShell>
+      </CloudModeProvider>
     </WorkspaceProvider>
   );
 }
