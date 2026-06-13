@@ -2,7 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeShiki from "@shikijs/rehype";
+import rehypeHighlight from "rehype-highlight";
 import type { ComponentPropsWithoutRef } from "react";
 import { CodeBlock } from "./code-block";
 
@@ -15,14 +15,7 @@ export function Markdown({ content }: MarkdownProps) {
     <div className="prose-helix text-sm leading-relaxed text-white/85">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[
-          [
-            rehypeShiki,
-            {
-              theme: "github-dark",
-            },
-          ],
-        ]}
+        rehypePlugins={[rehypeHighlight]}
         components={{
           p: ({ children }) => (
             <p className="mb-2.5 last:mb-0">{children}</p>
