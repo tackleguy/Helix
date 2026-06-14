@@ -5,7 +5,8 @@ import {
   queueComfyGeneration,
   saveImageBuffer,
 } from "@/lib/services/comfyui/client";
-import { generateWithReplicate } from "@/lib/services/replicate";
+import { generateWithHuggingFace, hasHuggingFaceImages } from "@/lib/services/huggingface-images";
+import { isVercelDeploy } from "@/lib/env";
 import { uid } from "@/lib/utils";
 import { logServer } from "@/lib/logger";
 
@@ -15,24 +16,32 @@ export type ProgressCallback = (event: {
   max: number;
 }) => void;
 
+async function resolveImageBackend(): Promise<"comfyui" | "huggingface"> {
+  if (!isVercelDeploy()) {
+    const comfyOnline = await isComfyUiOnline();
+    if (comfyOnline) return "comfyui";
+  }
+  if (hasHuggingFaceImages()) return "huggingface";
+  throw new Error(
+    "No image backend available. Start ComfyUI on :8188 or set HF_API_KEY for FLUX via Hugging Face.",
+  );
+}
+
 export async function generateImage(
   input: GenerateImageInput,
   onProgress?: ProgressCallback,
 ): Promise<ImageDto> {
   const id = uid();
+  const backend = await resolveImageBackend();
   let buffer: Buffer;
-  let backend = "comfyui";
 
-  const comfyOnline = await isComfyUiOnline();
-
-  if (comfyOnline) {
+  if (backend === "comfyui") {
     const result = await queueComfyGeneration(input, (p) => {
       onProgress?.({ type: "progress", value: p.value, max: p.max });
     });
     buffer = result.buffer;
   } else {
-    backend = "replicate";
-    buffer = await generateWithReplicate(input, (v) => {
+    buffer = await generateWithHuggingFace(input, (v) => {
       onProgress?.({ type: "progress", value: v, max: 100 });
     });
   }

@@ -33,6 +33,7 @@ export function ImageStudio() {
   const [library, setLibrary] = useState<ImageDto[]>([]);
   const [lightbox, setLightbox] = useState<ImageDto | null>(null);
   const [comfyOnline, setComfyOnline] = useState<boolean | null>(null);
+  const [hfImages, setHfImages] = useState<boolean | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadLibrary = useCallback(async () => {
@@ -45,6 +46,11 @@ export function ImageStudio() {
 
   useEffect(() => {
     void loadLibrary();
+    fetch("/api/cloud-status", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setHfImages(Boolean(d?.cloudImages)))
+      .catch(() => setHfImages(false));
+
     fetch("/api/services/status", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -161,11 +167,17 @@ export function ImageStudio() {
     <div className="flex min-h-0 flex-1 flex-col">
       <TopBar title="Images" />
 
-      {comfyOnline === false && (
+      {comfyOnline === false && hfImages && (
+        <div className="border-b border-helix/15 bg-helix/5 px-4 py-2 text-xs text-white/70">
+          ComfyUI offline — generating with{" "}
+          <span className="font-mono text-helix">FLUX</span> via Hugging Face
+          Inference Providers (<span className="font-mono">HF_API_KEY</span>).
+        </div>
+      )}
+      {comfyOnline === false && hfImages === false && (
         <div className="border-b border-amber-400/15 bg-amber-400/5 px-4 py-2 text-xs text-amber-100/80">
-          ComfyUI offline — using Replicate fallback if{" "}
-          <span className="font-mono">REPLICATE_API_TOKEN</span> is set in
-          Settings → Services.
+          No image backend available. Start ComfyUI on :8188 or set{" "}
+          <span className="font-mono">HF_API_KEY</span> for FLUX generation.
         </div>
       )}
 

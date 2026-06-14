@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
+    "@huggingface/inference": "^4.13.18",
     "@shikijs/rehype": "^4.1.0",
     "ai": "^6.0.191",
     "better-sqlite3": "^11.10.0",

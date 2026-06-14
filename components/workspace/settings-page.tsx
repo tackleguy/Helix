@@ -113,13 +113,7 @@ export function SettingsPage() {
         {tab === "services" && (
           <ServicesTab
             urls={data.services}
-            app={data.app}
-            onSave={(partial) =>
-              patch({
-                services: partial.urls,
-                app: partial.app,
-              })
-            }
+            onSave={(services) => patch({ services })}
           />
         )}
         {tab === "appearance" && (
@@ -268,26 +262,17 @@ function ModelsTab({
 
 function ServicesTab({
   urls,
-  app,
   onSave,
 }: {
   urls: ServiceUrls;
-  app: AppSettings;
-  onSave: (partial: {
-    urls?: Partial<ServiceUrls>;
-    app?: Partial<AppSettings>;
-  }) => void;
+  onSave: (urls: Partial<ServiceUrls>) => void;
 }) {
   const configs = getServiceConfigs();
   const [local, setLocal] = useState(urls);
-  const [replicateToken, setReplicateToken] = useState(
-    app.replicateApiToken ?? "",
-  );
   const [pinging, setPinging] = useState<ServiceId | null>(null);
   const [pingResult, setPingResult] = useState<string | null>(null);
 
   useEffect(() => setLocal(urls), [urls]);
-  useEffect(() => setReplicateToken(app.replicateApiToken ?? ""), [app.replicateApiToken]);
 
   const ping = async (id: ServiceId) => {
     setPinging(id);
@@ -322,6 +307,11 @@ function ServicesTab({
         </code>{" "}
         in <code className="font-mono text-[10px]">.env.local</code> and use
         base URL <code className="font-mono text-[10px]">https://ollama.com</code>.
+        Images use ComfyUI locally, or FLUX via{" "}
+        <code className="rounded bg-white/[0.06] px-1 font-mono text-[10px]">
+          HF_API_KEY
+        </code>{" "}
+        when ComfyUI is offline.
       </p>
       {configs.map((cfg) => (
         <div key={cfg.id}>
@@ -346,27 +336,8 @@ function ServicesTab({
       {pingResult && (
         <p className="text-xs text-white/50">{pingResult}</p>
       )}
-      <div className="border-t border-white/[0.06] pt-4">
-        <FieldLabel hint="Cloud fallback when ComfyUI is offline">
-          Replicate API token
-        </FieldLabel>
-        <Input
-          type="password"
-          value={replicateToken}
-          onChange={(e) => setReplicateToken(e.target.value)}
-          placeholder="r8_…"
-        />
-      </div>
-      <Button
-        variant="primary"
-        onClick={() =>
-          onSave({
-            urls: local,
-            app: { replicateApiToken: replicateToken || null },
-          })
-        }
-      >
-        Save
+      <Button variant="primary" onClick={() => onSave(local)}>
+        Save URLs
       </Button>
     </section>
   );
