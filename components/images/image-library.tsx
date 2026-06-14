@@ -6,13 +6,17 @@ interface ImageLibraryProps {
   images: ImageDto[];
   onSelect: (image: ImageDto) => void;
   onRemix: (image: ImageDto) => void;
+  eagerIds?: string[];
 }
 
 export function ImageLibrary({
   images,
   onSelect,
   onRemix,
+  eagerIds = [],
 }: ImageLibraryProps) {
+  const eager = new Set(eagerIds);
+
   return (
     <div className="columns-2 gap-3 sm:columns-3 lg:columns-4">
       {images.map((img) => (
@@ -30,7 +34,8 @@ export function ImageLibrary({
               src={img.url}
               alt={img.prompt}
               className="w-full object-cover transition duration-200 group-hover:opacity-90"
-              loading="lazy"
+              loading={eager.has(img.id) ? "eager" : "lazy"}
+              decoding="async"
             />
           </button>
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 transition group-hover:opacity-100">

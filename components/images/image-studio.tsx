@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Dices, ImageIcon, Sparkles } from "lucide-react";
+import { Dices, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { TopBar } from "@/components/workspace/topbar";
 import { Button, FieldLabel, Input, Select } from "@/components/shared/ui";
 import { IMAGE_STYLE_PRESETS } from "@/lib/presets/image-styles";
@@ -16,6 +16,23 @@ interface QueueItem {
   progress: number;
   error?: string;
   image?: ImageDto;
+}
+
+interface LivePreview {
+  status: "generating" | "done" | "error";
+  prompt: string;
+  progress: number;
+  image?: ImageDto;
+  error?: string;
+}
+
+function preloadImage(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("failed to load image"));
+    img.src = url;
+  });
 }
 
 export function ImageStudio() {
@@ -34,7 +51,10 @@ export function ImageStudio() {
   const [lightbox, setLightbox] = useState<ImageDto | null>(null);
   const [comfyOnline, setComfyOnline] = useState<boolean | null>(null);
   const [hfImages, setHfImages] = useState<boolean | null>(null);
+  const [livePreview, setLivePreview] = useState<LivePreview | null>(null);
+  const [eagerIds, setEagerIds] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const loadLibrary = useCallback(async () => {
     const res = await fetch("/api/images/library", { cache: "no-store" });
@@ -76,10 +96,17 @@ export function ImageStudio() {
   const generate = async () => {
     if (!prompt.trim()) return;
     const jobId = crypto.randomUUID();
+    const trimmedPrompt = prompt.trim();
+    setLivePreview({
+      status: "generating",
+      prompt: trimmedPrompt,
+      progress: 0,
+    });
     setQueue((q) => [
-      { id: jobId, prompt: prompt.trim(), status: "running", progress: 0 },
+      { id: jobId, prompt: trimmedPrompt, status: "running", progress: 0 },
       ...q,
     ]);
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
     try {
       const res = await fetch("/api/images/generate", {
@@ -128,6 +155,9 @@ export function ImageStudio() {
             const pct = payload.max
               ? Math.round((payload.value / payload.max) * 100)
               : payload.value;
+            setLivePreview((p) =>
+              p?.status === "generating" ? { ...p, progress: pct } : p,
+            );
             setQueue((q) =>
               q.map((j) =>
                 j.id === jobId ? { ...j, progress: pct } : j,
@@ -145,6 +175,20 @@ export function ImageStudio() {
 
       if (!image) throw new Error("no image returned");
 
+      try {
+        await preloadImage(image.url);
+      } catch {
+        /* still show — file route may lag slightly */
+      }
+
+      setEagerIds((ids) => [image!.id, ...ids.filter((id) => id !== image!.id)]);
+      setLibrary((lib) => [image!, ...lib.filter((i) => i.id !== image!.id)]);
+      setLivePreview({
+        status: "done",
+        prompt: trimmedPrompt,
+        progress: 100,
+        image,
+      });
       setQueue((q) =>
         q.map((j) =>
           j.id === jobId
@@ -152,9 +196,17 @@ export function ImageStudio() {
             : j,
         ),
       );
-      setLibrary((lib) => [image!, ...lib]);
+      requestAnimationFrame(() => {
+        previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "failed";
+      setLivePreview({
+        status: "error",
+        prompt: trimmedPrompt,
+        progress: 0,
+        error: msg,
+      });
       setQueue((q) =>
         q.map((j) =>
           j.id === jobId ? { ...j, status: "error", error: msg } : j,
@@ -206,21 +258,28 @@ export function ImageStudio() {
               </div>
             )}
 
-            <FieldLabel>Prompt</FieldLabel>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={5}
-              placeholder="Describe your image…"
-              className="w-full resize-none rounded-lg border border-white/[0.06] bg-ink-900 px-3 py-2 text-sm text-white/90 placeholder:text-white/25 focus:border-white/[0.12] focus:outline-none"
-            />
-
-            <FieldLabel>Negative prompt</FieldLabel>
-            <Input
-              value={negative}
-              onChange={(e) => setNegative(e.target.value)}
-              placeholder="Optional"
-            />
+            <div className="space-y-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+              <div>
+                <FieldLabel>Positive prompt</FieldLabel>
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={4}
+                  placeholder="What to include in the image…"
+                  className="mt-1.5 w-full resize-none rounded-lg border border-white/[0.06] bg-ink-900 px-3 py-2 text-sm text-white/90 placeholder:text-white/25 focus:border-helix/30 focus:outline-none"
+                />
+              </div>
+              <div>
+                <FieldLabel>Negative prompt</FieldLabel>
+                <textarea
+                  value={negative}
+                  onChange={(e) => setNegative(e.target.value)}
+                  rows={4}
+                  placeholder="What to avoid — blur, text, watermark…"
+                  className="mt-1.5 w-full resize-none rounded-lg border border-white/[0.06] bg-ink-900 px-3 py-2 text-sm text-white/90 placeholder:text-white/25 focus:border-white/[0.12] focus:outline-none"
+                />
+              </div>
+            </div>
 
             <FieldLabel>Style preset</FieldLabel>
             <Select value={style} onChange={(e) => setStyle(e.target.value)}>
@@ -353,10 +412,16 @@ export function ImageStudio() {
                   {job.status === "done" && job.image && (
                     <button
                       type="button"
-                      className="mt-1 text-[11px] text-helix hover:underline"
+                      className="mt-2 block w-full overflow-hidden rounded-md border border-white/[0.06]"
                       onClick={() => setLightbox(job.image!)}
                     >
-                      View result
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={job.image.url}
+                        alt={job.prompt}
+                        className="max-h-24 w-full object-cover"
+                        loading="eager"
+                      />
                     </button>
                   )}
                 </div>
@@ -370,17 +435,76 @@ export function ImageStudio() {
             <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
             Library
           </div>
-          {library.length === 0 ? (
+
+          {livePreview && (
+            <div
+              ref={previewRef}
+              className="mb-4 overflow-hidden rounded-xl border border-white/[0.08] bg-ink-900"
+            >
+              {livePreview.status === "generating" && (
+                <div className="flex aspect-square max-h-[min(70vh,520px)] w-full flex-col items-center justify-center gap-3 bg-white/[0.02] p-6">
+                  <Loader2
+                    className="h-8 w-8 animate-spin text-helix"
+                    strokeWidth={1.75}
+                  />
+                  <p className="text-sm text-white/55">Generating…</p>
+                  <p className="line-clamp-2 max-w-md text-center text-xs text-white/35">
+                    {livePreview.prompt}
+                  </p>
+                  <div className="h-1.5 w-48 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div
+                      className="h-full bg-helix transition-all duration-300"
+                      style={{ width: `${livePreview.progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {livePreview.status === "done" && livePreview.image && (
+                <button
+                  type="button"
+                  className="block w-full text-left"
+                  onClick={() => setLightbox(livePreview.image!)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={livePreview.image.url}
+                    alt={livePreview.image.prompt}
+                    className="max-h-[min(70vh,520px)] w-full object-contain"
+                    loading="eager"
+                    decoding="sync"
+                  />
+                  <div className="border-t border-white/[0.06] px-3 py-2">
+                    <p className="line-clamp-2 text-xs text-white/70">
+                      {livePreview.image.prompt}
+                    </p>
+                  </div>
+                </button>
+              )}
+              {livePreview.status === "error" && (
+                <div className="px-4 py-6 text-sm text-red-300/85">
+                  {livePreview.error}
+                </div>
+              )}
+            </div>
+          )}
+
+          {library.length === 0 && !livePreview ? (
             <p className="text-sm text-white/30">
               Generated images appear here. Drag a reference image onto the prompt
               panel for img2img workflows (ComfyUI).
             </p>
-          ) : (
+          ) : library.length > 0 ? (
             <ImageLibrary
-              images={library}
+              images={
+                livePreview?.status === "done" && livePreview.image
+                  ? library.filter((i) => i.id !== livePreview.image!.id)
+                  : library
+              }
+              eagerIds={eagerIds}
               onSelect={setLightbox}
               onRemix={(img) => {
                 setPrompt(img.prompt);
+                setNegative(img.negativePrompt ?? "");
                 try {
                   const params = JSON.parse(img.paramsJson ?? "{}") as {
                     model?: string;
@@ -391,7 +515,7 @@ export function ImageStudio() {
                 }
               }}
             />
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -401,6 +525,7 @@ export function ImageStudio() {
           onClose={() => setLightbox(null)}
           onRemix={() => {
             setPrompt(lightbox.prompt);
+            setNegative(lightbox.negativePrompt ?? "");
             setLightbox(null);
           }}
         />
