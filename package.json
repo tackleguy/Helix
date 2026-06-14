@@ -15,7 +15,11 @@
     "study:build:quick": "bash scripts/build-study-model.sh --quick",
     "study:serve": "bash scripts/serve-llama.sh study-helix",
     "system-check": "bash scripts/system-check.sh",
-    "test:hf": "node scripts/test-hf-connection.mjs"
+    "test:hf": "node scripts/test-hf-connection.mjs",
+    "install:local": "bash scripts/install-local.sh",
+    "install:local:quick": "bash scripts/install-local.sh --quick",
+    "start:local": "bash scripts/start-local.sh",
+    "stop:local": "bash scripts/stop-local.sh"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
