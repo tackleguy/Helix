@@ -2,6 +2,7 @@
 
 import { Download, MessageSquare, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { downloadImageFile } from "@/lib/images/download";
 import type { ImageDto } from "@/lib/images/types";
 
 interface ImageLightboxProps {
@@ -52,10 +53,9 @@ export function ImageLightbox({ image, onClose, onRemix }: ImageLightboxProps) {
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <ActionBtn icon={Download} label="Download" onClick={() => {
-              const a = document.createElement("a");
-              a.href = image.url;
-              a.download = `helix-${image.id}.png`;
-              a.click();
+              void downloadImageFile(image).catch(() => {
+                alert("Download failed");
+              });
             }} />
             <ActionBtn icon={MessageSquare} label="Send to chat" onClick={() => {
               router.push(`/chat?image=${encodeURIComponent(image.url)}`);

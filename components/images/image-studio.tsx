@@ -5,6 +5,8 @@ import { Dices, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { TopBar } from "@/components/workspace/topbar";
 import { Button, FieldLabel, Input, Select } from "@/components/shared/ui";
 import { IMAGE_STYLE_PRESETS } from "@/lib/presets/image-styles";
+import { listCloudImages, saveCloudImage } from "@/lib/images/cloud-client-store";
+import { useCloudMode } from "@/lib/chat/cloud-mode-context";
 import type { ImageDto } from "@/lib/images/types";
 import { ImageLibrary } from "./image-library";
 import { ImageLightbox } from "./image-lightbox";
@@ -36,6 +38,7 @@ function preloadImage(url: string): Promise<void> {
 }
 
 export function ImageStudio() {
+  const { onCloud, ready: cloudReady } = useCloudMode();
   const [prompt, setPrompt] = useState("");
   const [negative, setNegative] = useState("");
   const [model, setModel] = useState("flux-schnell");
@@ -57,14 +60,19 @@ export function ImageStudio() {
   const previewRef = useRef<HTMLDivElement>(null);
 
   const loadLibrary = useCallback(async () => {
+    if (onCloud) {
+      setLibrary(listCloudImages());
+      return;
+    }
     const res = await fetch("/api/images/library", { cache: "no-store" });
     if (res.ok) {
       const data = (await res.json()) as { images: ImageDto[] };
       setLibrary(data.images);
     }
-  }, []);
+  }, [onCloud]);
 
   useEffect(() => {
+    if (!cloudReady) return;
     void loadLibrary();
     fetch("/api/cloud-status", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -80,7 +88,7 @@ export function ImageStudio() {
         setComfyOnline(Boolean(comfy?.online));
       })
       .catch(() => setComfyOnline(false));
-  }, [loadLibrary]);
+  }, [loadLibrary, cloudReady]);
 
   const rollSeed = () => setSeed(Math.floor(Math.random() * 2 ** 31));
 
@@ -182,6 +190,7 @@ export function ImageStudio() {
       }
 
       setEagerIds((ids) => [image!.id, ...ids.filter((id) => id !== image!.id)]);
+      if (onCloud) saveCloudImage(image);
       setLibrary((lib) => [image!, ...lib.filter((i) => i.id !== image!.id)]);
       setLivePreview({
         status: "done",

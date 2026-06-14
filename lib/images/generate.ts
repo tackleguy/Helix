@@ -46,7 +46,33 @@ export async function generateImage(
     });
   }
 
-  const url = saveImageBuffer(id, buffer);
+  const url = isVercelDeploy()
+    ? `data:image/png;base64,${buffer.toString("base64")}`
+    : saveImageBuffer(id, buffer);
+
+  if (isVercelDeploy()) {
+    const image: ImageDto = {
+      id,
+      prompt: input.prompt,
+      negativePrompt: input.negativePrompt ?? null,
+      model: input.model,
+      paramsJson: JSON.stringify({
+        aspectRatio: input.aspectRatio,
+        steps: input.steps,
+        cfg: input.cfg,
+        seed: input.seed,
+        stylePreset: input.stylePreset,
+        backend,
+      }),
+      url,
+      thumbnailUrl: url,
+      sessionId: input.sessionId ?? null,
+      createdAt: Date.now(),
+    };
+    logServer("info", "image generation complete", { id, backend, vercel: true });
+    return image;
+  }
+
   const image = insertImage({
     id,
     prompt: input.prompt,
