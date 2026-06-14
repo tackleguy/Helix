@@ -113,7 +113,13 @@ export function SettingsPage() {
         {tab === "services" && (
           <ServicesTab
             urls={data.services}
-            onSave={(services) => patch({ services })}
+            app={data.app}
+            onSave={(partial) =>
+              patch({
+                services: partial.urls,
+                app: partial.app,
+              })
+            }
           />
         )}
         {tab === "appearance" && (
@@ -262,17 +268,26 @@ function ModelsTab({
 
 function ServicesTab({
   urls,
+  app,
   onSave,
 }: {
   urls: ServiceUrls;
-  onSave: (urls: Partial<ServiceUrls>) => void;
+  app: AppSettings;
+  onSave: (partial: {
+    urls?: Partial<ServiceUrls>;
+    app?: Partial<AppSettings>;
+  }) => void;
 }) {
   const configs = getServiceConfigs();
   const [local, setLocal] = useState(urls);
+  const [replicateToken, setReplicateToken] = useState(
+    app.replicateApiToken ?? "",
+  );
   const [pinging, setPinging] = useState<ServiceId | null>(null);
   const [pingResult, setPingResult] = useState<string | null>(null);
 
   useEffect(() => setLocal(urls), [urls]);
+  useEffect(() => setReplicateToken(app.replicateApiToken ?? ""), [app.replicateApiToken]);
 
   const ping = async (id: ServiceId) => {
     setPinging(id);
@@ -331,8 +346,27 @@ function ServicesTab({
       {pingResult && (
         <p className="text-xs text-white/50">{pingResult}</p>
       )}
-      <Button variant="primary" onClick={() => onSave(local)}>
-        Save URLs
+      <div className="border-t border-white/[0.06] pt-4">
+        <FieldLabel hint="Cloud fallback when ComfyUI is offline">
+          Replicate API token
+        </FieldLabel>
+        <Input
+          type="password"
+          value={replicateToken}
+          onChange={(e) => setReplicateToken(e.target.value)}
+          placeholder="r8_…"
+        />
+      </div>
+      <Button
+        variant="primary"
+        onClick={() =>
+          onSave({
+            urls: local,
+            app: { replicateApiToken: replicateToken || null },
+          })
+        }
+      >
+        Save
       </Button>
     </section>
   );

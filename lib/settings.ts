@@ -10,6 +10,7 @@ export const AppSettingsSchema = z.object({
   defaultImageModel: z.string().default("flux-schnell"),
   defaultVoice: z.string().default("coqui"),
   accentColor: z.string().default("#5eead4"),
+  replicateApiToken: z.string().nullable().optional(),
 });
 
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
