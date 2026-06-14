@@ -2,6 +2,9 @@ node_modules
 .next
 finetune/outputs
 finetune/gguf
+finetune/fused
+finetune/adapters
+finetune/custom_llama
 finetune/.venv
 finetune/**/*.gguf
 .git
