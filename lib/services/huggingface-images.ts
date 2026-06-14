@@ -1,5 +1,5 @@
 import { InferenceClient } from "@huggingface/inference";
-import { getHuggingFaceApiKey } from "@/lib/env";
+import { getHuggingFaceApiKey, isLocalOnlyMode } from "@/lib/env";
 import { logServer } from "@/lib/logger";
 import { applyStylePreset } from "@/lib/presets/image-styles";
 import type { GenerateImageInput } from "@/lib/images/types";
@@ -22,6 +22,7 @@ export function getHuggingFaceImageModel(helixModel?: string): string {
 }
 
 export function hasHuggingFaceImages(): boolean {
+  if (isLocalOnlyMode()) return false;
   return Boolean(getHuggingFaceApiKey());
 }
 

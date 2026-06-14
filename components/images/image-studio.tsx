@@ -54,6 +54,7 @@ export function ImageStudio() {
   const [lightbox, setLightbox] = useState<ImageDto | null>(null);
   const [comfyOnline, setComfyOnline] = useState<boolean | null>(null);
   const [hfImages, setHfImages] = useState<boolean | null>(null);
+  const [localOnly, setLocalOnly] = useState(false);
   const [livePreview, setLivePreview] = useState<LivePreview | null>(null);
   const [eagerIds, setEagerIds] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -76,8 +77,14 @@ export function ImageStudio() {
     void loadLibrary();
     fetch("/api/cloud-status", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setHfImages(Boolean(d?.cloudImages)))
-      .catch(() => setHfImages(false));
+      .then((d) => {
+        setHfImages(Boolean(d?.cloudImages));
+        setLocalOnly(Boolean(d?.localOnly));
+      })
+      .catch(() => {
+        setHfImages(false);
+        setLocalOnly(false);
+      });
 
     fetch("/api/services/status", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -228,17 +235,30 @@ export function ImageStudio() {
     <div className="flex min-h-0 flex-1 flex-col">
       <TopBar title="Images" />
 
-      {comfyOnline === false && hfImages && (
+      {localOnly && (
+        <div className="border-b border-helix/15 bg-helix/5 px-4 py-2 text-xs text-white/70">
+          Local-only mode — chat uses llama-server/Ollama/LM Studio; images need
+          ComfyUI on <span className="font-mono">:8188</span>. Set{" "}
+          <span className="font-mono">AI_LOCAL_ONLY=false</span> to use HF again.
+        </div>
+      )}
+
+      {!localOnly && comfyOnline === false && hfImages && (
         <div className="border-b border-helix/15 bg-helix/5 px-4 py-2 text-xs text-white/70">
           ComfyUI offline — generating with{" "}
           <span className="font-mono text-helix">FLUX</span> via Hugging Face
           Inference Providers (<span className="font-mono">HF_API_KEY</span>).
         </div>
       )}
-      {comfyOnline === false && hfImages === false && (
+      {!localOnly && comfyOnline === false && hfImages === false && (
         <div className="border-b border-amber-400/15 bg-amber-400/5 px-4 py-2 text-xs text-amber-100/80">
           No image backend available. Start ComfyUI on :8188 or set{" "}
           <span className="font-mono">HF_API_KEY</span> for FLUX generation.
+        </div>
+      )}
+      {localOnly && comfyOnline === false && (
+        <div className="border-b border-amber-400/15 bg-amber-400/5 px-4 py-2 text-xs text-amber-100/80">
+          ComfyUI offline — start ComfyUI on :8188 to generate images locally.
         </div>
       )}
 

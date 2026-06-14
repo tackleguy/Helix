@@ -7,6 +7,7 @@ import {
 import {
   hasCloudChat,
   hasHuggingFaceChat,
+  isLocalOnlyMode,
   isVercelDeploy,
   resolveAIProvider,
 } from "@/lib/env";
@@ -102,6 +103,10 @@ export function getProvider(id: AIProviderId): AIProvider {
 }
 
 export function resolveProviderForRequest(): AIProviderId {
+  if (isLocalOnlyMode()) {
+    return "local";
+  }
+
   const explicit = resolveAIProvider();
   if (explicit && !(isVercelDeploy() && explicit === "local")) {
     return explicit;
@@ -131,7 +136,7 @@ export async function streamWithProvider(
   const enriched = withSystemPrompt(input);
   let providerId = resolveProviderForRequest();
 
-  if (providerId === "local" && hasHuggingFaceChat()) {
+  if (providerId === "local" && !isLocalOnlyMode() && hasHuggingFaceChat()) {
     const anyLocal = await hasOnlineLocalChatBackend();
     if (!anyLocal) {
       logServer("info", "no local backend online, using huggingface", {});
@@ -143,6 +148,12 @@ export async function streamWithProvider(
     try {
       return await providers.local.stream(enriched);
     } catch (err) {
+      if (isLocalOnlyMode()) {
+        throw new Error(
+          `${err instanceof Error ? err.message : "local chat failed"}. ` +
+            "Start llama-server (:8080), Ollama (:11434), or LM Studio (:1234).",
+        );
+      }
       if (hasHuggingFaceChat()) {
         logServer("warn", "local backend unavailable, falling back to huggingface", {
           error: err instanceof Error ? err.message : String(err),

@@ -3,6 +3,7 @@ import {
   hasCloudChat,
   hasHuggingFaceChat,
   hasOpenAIChat,
+  isLocalOnlyMode,
   isVercelDeploy,
 } from "@/lib/env";
 import { getHuggingFaceModel } from "@/src/services/ai/huggingface";
@@ -18,6 +19,7 @@ export async function GET() {
   try {
     return Response.json({
       vercel: isVercelDeploy(),
+      localOnly: isLocalOnlyMode(),
       huggingface: hasHuggingFaceChat(),
       openai: hasOpenAIChat(),
       cloudChat: hasCloudChat(),

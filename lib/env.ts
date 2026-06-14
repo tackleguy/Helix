@@ -11,13 +11,27 @@ export function getHuggingFaceApiKey(): string | undefined {
   return key || undefined;
 }
 
+/**
+ * Local dev: use only llama-server / Ollama / LM Studio + ComfyUI.
+ * Ignored on Vercel. Enable with AI_LOCAL_ONLY=true or AI_PROVIDER=local.
+ */
+export function isLocalOnlyMode(): boolean {
+  if (isVercelDeploy()) return false;
+  if (process.env.AI_LOCAL_ONLY?.trim().toLowerCase() === "true") {
+    return true;
+  }
+  return resolveAIProvider() === "local";
+}
+
 /** Cloud chat via Hugging Face Inference Providers. */
 export function hasHuggingFaceChat(): boolean {
+  if (isLocalOnlyMode()) return false;
   return Boolean(getHuggingFaceApiKey());
 }
 
 /** Cloud chat via OpenAI when deployed and key is configured. */
 export function hasOpenAIChat(): boolean {
+  if (isLocalOnlyMode()) return false;
   return Boolean(process.env.OPENAI_API_KEY?.trim());
 }
 

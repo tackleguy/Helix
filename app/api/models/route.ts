@@ -3,6 +3,7 @@ import { ollamaRequestHeaders } from "@/lib/ollama";
 import {
   hasHuggingFaceChat,
   hasOpenAIChat,
+  isLocalOnlyMode,
   isVercelDeploy,
 } from "@/lib/env";
 import { loadServiceUrls, getAllServiceHealth } from "@/lib/services/registry";
@@ -85,7 +86,7 @@ function cloudBackends(): BackendModels[] {
 
 export async function GET() {
   try {
-    const cloud = cloudBackends();
+    const cloud = isLocalOnlyMode() ? [] : cloudBackends();
 
     if (isVercelDeploy()) {
       return Response.json({

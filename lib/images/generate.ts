@@ -6,7 +6,7 @@ import {
   saveImageBuffer,
 } from "@/lib/services/comfyui/client";
 import { generateWithHuggingFace, hasHuggingFaceImages } from "@/lib/services/huggingface-images";
-import { isVercelDeploy } from "@/lib/env";
+import { isLocalOnlyMode, isVercelDeploy } from "@/lib/env";
 import { uid } from "@/lib/utils";
 import { logServer } from "@/lib/logger";
 
@@ -20,6 +20,11 @@ async function resolveImageBackend(): Promise<"comfyui" | "huggingface"> {
   if (!isVercelDeploy()) {
     const comfyOnline = await isComfyUiOnline();
     if (comfyOnline) return "comfyui";
+    if (isLocalOnlyMode()) {
+      throw new Error(
+        "ComfyUI is offline. Start ComfyUI on :8188 (local-only mode — HF fallback disabled).",
+      );
+    }
   }
   if (hasHuggingFaceImages()) return "huggingface";
   throw new Error(
