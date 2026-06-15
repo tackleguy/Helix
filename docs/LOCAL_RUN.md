@@ -2,7 +2,22 @@
 
 Helix can run **fully local** after one install — no Hugging Face credits required.
 
-## One command install
+| `npm run dev` | Helix UI only (backends must be running) |
+
+## Downloadable macOS app
+
+```bash
+npm run build:app
+# → dist/Helix-macOS-arm64.zip
+```
+
+Unzip → drag **Helix.app** to Applications → double-click.
+
+- Bundles Node + Helix server (no terminal, no separate `npm install`)
+- First launch runs `install-local` into `~/.helix/workspace`
+- Models are **not** in the zip — downloaded once on first open
+
+## One command install (terminal)
 
 From the repo root:
 

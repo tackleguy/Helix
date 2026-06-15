@@ -26,4 +26,4 @@ finetune/gguf/
 finetune/**/*.gguf
 finetune/adapters/
 finetune/fused/
-finetune/data/
+dist/

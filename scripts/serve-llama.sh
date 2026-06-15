@@ -20,7 +20,11 @@
 #   ./scripts/serve-llama.sh stop
 set -euo pipefail
 
-WORKSPACE="$(cd "$(dirname "$0")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/lib/paths.sh
+source "$SCRIPT_DIR/lib/paths.sh"
+resolve_helix_paths "$SCRIPT_DIR"
+WORKSPACE="$HELIX_WORKSPACE"
 LLAMA_BIN="${LLAMA_BIN:-$WORKSPACE/llama-bin/llama-server}"
 LLAMA_MODELS="${LLAMA_MODELS:-$WORKSPACE/llama.cpp/models}"
 PORT="${LLAMA_PORT:-8080}"

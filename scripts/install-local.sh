@@ -12,7 +12,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WORKSPACE="$(cd "$ROOT/.." && pwd)"
+# shellcheck source=scripts/lib/paths.sh
+source "$ROOT/scripts/lib/paths.sh"
+resolve_helix_paths "$ROOT/scripts"
+WORKSPACE="$HELIX_WORKSPACE"
 # shellcheck source=scripts/lib/download.sh
 source "$ROOT/scripts/lib/download.sh"
 
@@ -54,7 +57,9 @@ echo "[helix] node $(node -v) · npm $(npm -v)"
 
 # --- Helix app ---
 cd "$ROOT"
-if [[ ! -d node_modules ]]; then
+if [[ -f "$ROOT/server.js" ]]; then
+  echo "[helix] packaged app server present"
+elif [[ ! -d node_modules ]]; then
   echo "[helix] npm install…"
   npm install
 else
@@ -135,6 +140,7 @@ fi
 download_file "$FLUX_CKPT_URL" "$COMFY_DIR/models/checkpoints/$FLUX_CKPT"
 
 mkdir -p "$HOME/.helix/logs"
+date >"$WORKSPACE/.helix-installed"
 
 echo ""
 echo "=== Install complete ==="

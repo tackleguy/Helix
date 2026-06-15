@@ -3,7 +3,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WORKSPACE="$(cd "$ROOT/.." && pwd)"
+# shellcheck source=scripts/lib/paths.sh
+source "$ROOT/scripts/lib/paths.sh"
+resolve_helix_paths "$ROOT/scripts"
+WORKSPACE="$HELIX_WORKSPACE"
 LOG_DIR="${HELIX_HOME:-$HOME/.helix}/logs"
 PID_DIR="${HELIX_HOME:-$HOME/.helix}/run"
 CHAT_MODEL="${HELIX_CHAT_MODEL:-qwen-7b}"

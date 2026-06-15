@@ -2,7 +2,24 @@
 
 Local-first AI workspace: chat, image studio, and more. Run fully offline after a one-time install.
 
-## Download & run (local, all AI included)
+## Downloadable macOS app
+
+Build a **double-clickable `.app`** (AI models download on first launch):
+
+```bash
+npm run build:app
+```
+
+Output: `dist/Helix-macOS-arm64.zip` (~150 MB)
+
+1. Unzip and drag **Helix.app** to Applications  
+2. Double-click **Helix** (first launch: right-click → Open if Gatekeeper blocks)  
+3. First run downloads chat + image models to `~/.helix/workspace` (~15–20 GB)  
+4. Browser opens at http://localhost:3000  
+
+See [docs/LOCAL_RUN.md](docs/LOCAL_RUN.md) for troubleshooting.
+
+## Download & run (local, terminal)
 
 **Requirements:** Node 20+, git, curl, Python 3.11+ (3.12 recommended), ~20 GB free disk for full install.
 
@@ -72,7 +89,7 @@ AI_PROVIDER=huggingface
 | `npm run install:local:quick` | Chat only (skip ComfyUI/FLUX) |
 | `npm run start:local` | Start all local services + dev server |
 | `npm run stop:local` | Stop background services |
-| `npm run dev` | Helix UI only (backends must be running) |
+| `npm run build:app` | Build `Helix.app` zip for macOS |
 
 ## Docs
 

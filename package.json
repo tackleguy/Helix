@@ -19,7 +19,9 @@
     "install:local": "bash scripts/install-local.sh",
     "install:local:quick": "bash scripts/install-local.sh --quick",
     "start:local": "bash scripts/start-local.sh",
-    "stop:local": "bash scripts/stop-local.sh"
+    "stop:local": "bash scripts/stop-local.sh",
+    "build:app": "bash scripts/build-macos-app.sh",
+    "build:app:mac": "bash scripts/build-macos-app.sh"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",

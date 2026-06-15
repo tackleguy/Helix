@@ -2,7 +2,11 @@
 # Start ComfyUI for Helix image generation (default :8188).
 set -euo pipefail
 
-COMFY_DIR="${COMFY_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/ComfyUI}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/lib/paths.sh
+source "$SCRIPT_DIR/lib/paths.sh"
+resolve_helix_paths "$SCRIPT_DIR"
+COMFY_DIR="${COMFY_DIR:-$HELIX_WORKSPACE/ComfyUI}"
 
 if [[ ! -f "$COMFY_DIR/main.py" ]]; then
   echo "ComfyUI not found at $COMFY_DIR"
