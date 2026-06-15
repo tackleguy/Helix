@@ -12,6 +12,7 @@ import type { AppSettings } from "@/lib/settings";
 import type { ServiceUrls } from "@/lib/services/registry";
 import type { ServiceHealth, ServiceId } from "@/lib/services/types";
 import { getServiceConfigs } from "@/lib/services/base";
+import { DownloadAppButton } from "@/components/workspace/download-app-button";
 
 type Tab = "general" | "models" | "services" | "appearance" | "data";
 
@@ -138,6 +139,7 @@ function GeneralTab({
   return (
     <section className="max-w-md space-y-4">
       <h2 className="text-sm font-medium text-white/85">General</h2>
+      <DownloadAppButton variant="card" />
       <FieldLabel hint="UI language (display only in Phase 1)">Language</FieldLabel>
       <Input value={language} onChange={(e) => setLanguage(e.target.value)} />
       <FieldLabel>Theme</FieldLabel>

@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "./workspace-context";
 import { ChatSessionList } from "@/components/chat/session-list";
+import { DownloadAppButton } from "@/components/workspace/download-app-button";
 
 const NAV = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
@@ -73,7 +74,8 @@ export function Sidebar() {
 
       {onChat && <ChatSessionList />}
 
-      <div className="mt-auto border-t border-white/[0.06] px-3 py-2.5">
+      <div className="mt-auto border-t border-white/[0.06] px-3 py-2.5 space-y-2">
+        <DownloadAppButton />
         <p className="text-[10px] text-white/25">Local-first · v0.5</p>
       </div>
     </aside>
