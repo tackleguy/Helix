@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { useWorkspace } from "./workspace-context";
 import { ChatSessionList } from "@/components/chat/session-list";
 import { DownloadAppButton } from "@/components/workspace/download-app-button";
+import { useCloudMode } from "@/lib/chat/cloud-mode-context";
+import { HELIX_CLOUD_URL } from "@/lib/site";
 
 const NAV = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
@@ -32,14 +34,25 @@ const NAV = [
 export function Sidebar() {
   const pathname = usePathname();
   const { setSidebarOpen } = useWorkspace();
+  const { onCloud, ready } = useCloudMode();
   const onChat = pathname.startsWith("/chat");
 
   return (
     <aside className="flex h-full w-[220px] flex-col border-r border-white/[0.06] bg-ink-900/90">
       <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-2.5">
-        <Link href="/chat" className="wordmark text-lg text-white/90">
-          Helix
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={onCloud ? "/" : "/chat"}
+            className="wordmark text-lg text-white/90"
+          >
+            Helix
+          </Link>
+          {ready && onCloud && (
+            <span className="rounded bg-helix/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-helix">
+              Cloud
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setSidebarOpen(false)}
@@ -75,8 +88,18 @@ export function Sidebar() {
       {onChat && <ChatSessionList />}
 
       <div className="mt-auto border-t border-white/[0.06] px-3 py-2.5 space-y-2">
-        <DownloadAppButton />
-        <p className="text-[10px] text-white/25">Local-first · v0.5</p>
+        {ready && onCloud && <DownloadAppButton />}
+        {ready && !onCloud && (
+          <a
+            href={HELIX_CLOUD_URL}
+            className="block text-[10px] text-white/35 hover:text-helix"
+          >
+            Cloud site →
+          </a>
+        )}
+        <p className="text-[10px] text-white/25">
+          {onCloud ? "Cloud · " : "Local · "}v0.5
+        </p>
       </div>
     </aside>
   );

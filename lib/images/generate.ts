@@ -1,6 +1,9 @@
 import { insertImage } from "@/lib/images/repository";
 import type { GenerateImageInput, ImageDto } from "@/lib/images/types";
 import {
+  generateHtmlCanvasImage,
+} from "@/lib/images/html-canvas";
+import {
   isComfyUiOnline,
   queueComfyGeneration,
   saveImageBuffer,
@@ -37,6 +40,50 @@ export async function generateImage(
   onProgress?: ProgressCallback,
 ): Promise<ImageDto> {
   const id = uid();
+
+  if (input.model === "html-canvas") {
+    const { buffer, html } = await generateHtmlCanvasImage(input, onProgress);
+    const url = isVercelDeploy()
+      ? `data:image/png;base64,${buffer.toString("base64")}`
+      : saveImageBuffer(id, buffer);
+
+    const params = {
+      aspectRatio: input.aspectRatio,
+      stylePreset: input.stylePreset,
+      backend: "html-canvas" as const,
+      htmlLength: html.length,
+    };
+
+    if (isVercelDeploy()) {
+      const image: ImageDto = {
+        id,
+        prompt: input.prompt,
+        negativePrompt: input.negativePrompt ?? null,
+        model: input.model,
+        paramsJson: JSON.stringify(params),
+        url,
+        thumbnailUrl: url,
+        sessionId: input.sessionId ?? null,
+        createdAt: Date.now(),
+      };
+      logServer("info", "html canvas image complete", { id, vercel: true });
+      return image;
+    }
+
+    const image = insertImage({
+      id,
+      prompt: input.prompt,
+      negativePrompt: input.negativePrompt ?? null,
+      model: input.model,
+      paramsJson: JSON.stringify(params),
+      url,
+      thumbnailUrl: url,
+      sessionId: input.sessionId ?? null,
+    });
+    logServer("info", "html canvas image complete", { id });
+    return image;
+  }
+
   const backend = await resolveImageBackend();
   let buffer: Buffer;
 

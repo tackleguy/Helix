@@ -14,7 +14,8 @@ const serif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "Helix",
-  description: "Local-first AI operating system.",
+  description:
+    "AI workspace for chat and images. Use Helix in the cloud or download the Mac app for fully local AI.",
 };
 
 export const viewport: Viewport = {

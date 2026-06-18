@@ -18,6 +18,7 @@
     "test:hf": "node scripts/test-hf-connection.mjs",
     "install:local": "bash scripts/install-local.sh",
     "install:local:quick": "bash scripts/install-local.sh --quick",
+    "install:html-render": "bash scripts/install-html-render.sh",
     "start:local": "bash scripts/start-local.sh",
     "stop:local": "bash scripts/stop-local.sh",
     "build:app": "bash scripts/build-macos-app.sh",

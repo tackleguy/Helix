@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ImageModelId } from "@/lib/images/types";
+import type { DiffusionImageModelId } from "@/lib/images/types";
 
 export interface WorkflowParams {
   prompt: string;
@@ -13,7 +13,7 @@ export interface WorkflowParams {
 }
 
 export interface WorkflowDefinition {
-  id: ImageModelId;
+  id: DiffusionImageModelId;
   label: string;
   checkpoint: string;
   defaultSteps: number;
@@ -27,7 +27,7 @@ export interface WorkflowDefinition {
   };
 }
 
-export const WORKFLOW_DEFS: Record<ImageModelId, WorkflowDefinition> = {
+export const WORKFLOW_DEFS: Record<DiffusionImageModelId, WorkflowDefinition> = {
   "flux-schnell": {
     id: "flux-schnell",
     label: "FLUX Schnell",
@@ -56,13 +56,13 @@ export const WORKFLOW_DEFS: Record<ImageModelId, WorkflowDefinition> = {
 
 const WORKFLOWS_DIR = join(process.cwd(), "lib", "services", "comfyui", "workflows");
 
-export function loadWorkflowTemplate(model: ImageModelId): Record<string, unknown> {
+export function loadWorkflowTemplate(model: DiffusionImageModelId): Record<string, unknown> {
   const path = join(WORKFLOWS_DIR, `${model}.json`);
   return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
 }
 
 export function buildComfyPrompt(
-  model: ImageModelId,
+  model: DiffusionImageModelId,
   params: WorkflowParams,
 ): Record<string, unknown> {
   const def = WORKFLOW_DEFS[model];

@@ -1,8 +1,22 @@
 # Helix
 
-Local-first AI workspace: chat, image studio, and more. Run fully offline after a one-time install.
+AI workspace for chat and images — **cloud website** or **local Mac app**.
 
-## Downloadable macOS app
+## Two ways to use Helix
+
+| | **Cloud** | **Local download** |
+|---|-----------|-------------------|
+| URL | [helix-five-wheat.vercel.app](https://helix-five-wheat.vercel.app) | `Helix.app` on your Mac |
+| AI | Hugging Face (browser) | llama-server + ComfyUI (offline) |
+| Install | None | [Download zip](https://helix-five-wheat.vercel.app/downloads/Helix-macOS-arm64.zip) |
+
+Landing page: **/** — pick Cloud or Download.
+
+## Cloud website
+
+Open the hosted site → **Open workspace** → `/chat`. Requires `HF_API_KEY` on Vercel.
+
+## Local Mac app
 
 Build a **double-clickable `.app`** (AI models download on first launch):
 
@@ -13,9 +27,11 @@ npm run build:app
 Output: `dist/Helix-macOS-arm64.zip` (~150 MB)
 
 1. Unzip and drag **Helix.app** to Applications  
-2. Double-click **Helix** (first launch: right-click → Open if Gatekeeper blocks)  
+2. If macOS says it **could not verify** the app: **right-click Helix.app → Open → Open** (once), or run `xattr -dr com.apple.quarantine /Applications/Helix.app`  
 3. First run downloads chat + image models to `~/.helix/workspace` (~15–20 GB)  
 4. Browser opens at http://localhost:3000  
+
+Helix is not Apple-notarized yet (unsigned indie build). See `/download` on the site for Gatekeeper steps.
 
 See [docs/LOCAL_RUN.md](docs/LOCAL_RUN.md) for troubleshooting.
 

@@ -76,10 +76,32 @@ chmod +x "$APP/Contents/MacOS/Helix"
 
 cp "$ROOT/packaging/macos/Info.plist" "$APP/Contents/Info.plist"
 
+echo "[helix] signing app…"
+bash "$ROOT/scripts/sign-macos-app.sh" "$APP"
+
+cat >"$STAGING/INSTALL.txt" <<'INSTALL'
+Helix for macOS — first launch
+
+If macOS says it "could not verify" or "cannot be opened":
+
+  Option A — Right-click Helix.app → Open → Open (once only)
+
+  Option B — System Settings → Privacy & Security → Open Anyway
+
+  Option C — Terminal (after moving to Applications):
+    xattr -dr com.apple.quarantine /Applications/Helix.app
+
+Helix is not notarized yet (no Apple Developer signature). The app is open
+source; you can inspect the build at github.com/tackleguy/Helix.
+
+Then drag Helix.app to Applications and launch. First run downloads models
+(~15–20 GB) to ~/.helix/workspace and opens http://localhost:3000
+INSTALL
+
 ZIP_NAME="Helix-macOS-${ARCH}.zip"
 cd "$STAGING"
 rm -f "$DIST/$ZIP_NAME"
-ditto -c -k --sequesterRsrc --keepParent Helix.app "$DIST/$ZIP_NAME"
+ditto -c -k --sequesterRsrc --keepParent Helix.app INSTALL.txt "$DIST/$ZIP_NAME"
 
 echo ""
 echo "=== Done ==="

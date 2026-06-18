@@ -55,6 +55,8 @@ export function ImageStudio() {
   const [comfyOnline, setComfyOnline] = useState<boolean | null>(null);
   const [hfImages, setHfImages] = useState<boolean | null>(null);
   const [localOnly, setLocalOnly] = useState(false);
+  const [htmlRender, setHtmlRender] = useState<boolean | null>(null);
+  const [htmlRenderHf, setHtmlRenderHf] = useState<boolean | null>(null);
   const [livePreview, setLivePreview] = useState<LivePreview | null>(null);
   const [eagerIds, setEagerIds] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -80,10 +82,14 @@ export function ImageStudio() {
       .then((d) => {
         setHfImages(Boolean(d?.cloudImages));
         setLocalOnly(Boolean(d?.localOnly));
+        setHtmlRender(Boolean(d?.htmlRender));
+        setHtmlRenderHf(Boolean(d?.htmlRenderHf));
       })
       .catch(() => {
         setHfImages(false);
         setLocalOnly(false);
+        setHtmlRender(false);
+        setHtmlRenderHf(false);
       });
 
     fetch("/api/services/status", { cache: "no-store" })
@@ -96,6 +102,8 @@ export function ImageStudio() {
       })
       .catch(() => setComfyOnline(false));
   }, [loadLibrary, cloudReady]);
+
+  const isHtmlModel = model === "html-canvas";
 
   const rollSeed = () => setSeed(Math.floor(Math.random() * 2 ** 31));
 
@@ -235,6 +243,35 @@ export function ImageStudio() {
     <div className="flex min-h-0 flex-1 flex-col">
       <TopBar title="Images" />
 
+      {isHtmlModel && (
+        <div className="border-b border-helix/15 bg-helix/5 px-4 py-2 text-xs text-white/70">
+          HTML Canvas —{" "}
+          <span className="font-mono text-helix">HF Qwen</span> writes HTML/CSS,
+          then Playwright renders PNG.
+          {htmlRenderHf === false && (
+            <span className="text-amber-200/80">
+              {" "}
+              Set <span className="font-mono">HF_API_KEY</span> in{" "}
+              <span className="font-mono">.env.local</span>.
+            </span>
+          )}
+          {htmlRenderHf && htmlRender === false && (
+            <span className="text-amber-200/80">
+              {" "}
+              Run <span className="font-mono">npm run install:html-render</span>{" "}
+              for Playwright.
+            </span>
+          )}
+        </div>
+      )}
+
+      {onCloud && !localOnly && hfImages && !isHtmlModel && (
+        <div className="border-b border-helix/15 bg-helix/5 px-4 py-2 text-xs text-white/70">
+          Cloud — images generated with{" "}
+          <span className="font-mono text-helix">FLUX</span> via Hugging Face.
+        </div>
+      )}
+
       {localOnly && (
         <div className="border-b border-helix/15 bg-helix/5 px-4 py-2 text-xs text-white/70">
           Local-only mode — chat uses llama-server/Ollama/LM Studio; images need
@@ -294,7 +331,11 @@ export function ImageStudio() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   rows={4}
-                  placeholder="What to include in the image…"
+                  placeholder={
+                    isHtmlModel
+                      ? "Describe the image — AI writes HTML, then renders PNG…"
+                      : "What to include in the image…"
+                  }
                   className="mt-1.5 w-full resize-none rounded-lg border border-white/[0.06] bg-ink-900 px-3 py-2 text-sm text-white/90 placeholder:text-white/25 focus:border-helix/30 focus:outline-none"
                 />
               </div>
@@ -325,6 +366,7 @@ export function ImageStudio() {
               <option value="flux-schnell">FLUX Schnell</option>
               <option value="flux-dev">FLUX Dev</option>
               <option value="sdxl-lightning">SDXL Lightning</option>
+              <option value="html-canvas">HTML Canvas (prompt → HTML → PNG)</option>
             </Select>
 
             <FieldLabel>Aspect ratio</FieldLabel>
@@ -342,6 +384,7 @@ export function ImageStudio() {
                 <Input
                   type="number"
                   value={seed}
+                  disabled={isHtmlModel}
                   onChange={(e) =>
                     setSeed(e.target.value === "" ? "" : Number(e.target.value))
                   }
@@ -351,6 +394,7 @@ export function ImageStudio() {
               <button
                 type="button"
                 onClick={rollSeed}
+                disabled={isHtmlModel}
                 className="mb-0.5 grid h-9 w-9 place-items-center rounded-lg border border-white/[0.06] text-white/50 hover:text-white/80"
                 aria-label="Random seed"
               >
@@ -365,7 +409,7 @@ export function ImageStudio() {
             >
               {advanced ? "▼" : "▶"} Advanced
             </button>
-            {advanced && (
+            {advanced && !isHtmlModel && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <FieldLabel>Steps</FieldLabel>

@@ -4,9 +4,13 @@ export const IMAGE_MODEL_IDS = [
   "flux-schnell",
   "flux-dev",
   "sdxl-lightning",
+  "html-canvas",
 ] as const;
 
 export type ImageModelId = (typeof IMAGE_MODEL_IDS)[number];
+
+/** Diffusion models served by ComfyUI / HF — not HTML Canvas. */
+export type DiffusionImageModelId = Exclude<ImageModelId, "html-canvas">;
 
 export const ASPECT_RATIOS = [
   { id: "1:1", width: 1024, height: 1024 },

@@ -11,6 +11,7 @@ import {
   getHuggingFaceImageModel,
   hasHuggingFaceImages,
 } from "@/lib/services/huggingface-images";
+import { isHtmlRenderReady, hasHfForHtmlCanvas } from "@/lib/images/html-canvas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,8 @@ export async function GET() {
       defaultImageModel: hasHuggingFaceImages()
         ? getHuggingFaceImageModel()
         : null,
+      htmlRender: await isHtmlRenderReady(),
+      htmlRenderHf: hasHfForHtmlCanvas(),
     });
   } catch {
     return apiError("cloud status failed", 500);

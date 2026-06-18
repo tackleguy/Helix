@@ -8,7 +8,7 @@ import {
   buildComfyPrompt,
   WORKFLOW_DEFS,
 } from "@/lib/services/comfyui/workflows";
-import type { GenerateImageInput } from "@/lib/images/types";
+import type { DiffusionImageModelId, GenerateImageInput } from "@/lib/images/types";
 import { ASPECT_RATIOS } from "@/lib/images/types";
 import { applyStylePreset } from "@/lib/presets/image-styles";
 
@@ -26,9 +26,13 @@ export async function queueComfyGeneration(
   input: GenerateImageInput,
   onProgress?: (p: ComfyProgress) => void,
 ): Promise<{ buffer: Buffer; filename: string }> {
+  if (input.model === "html-canvas") {
+    throw new Error("html-canvas uses the HTML render pipeline, not ComfyUI");
+  }
+  const model = input.model as DiffusionImageModelId;
   const urls = await loadServiceUrls();
   const base = urls.comfyui.replace(/\/$/, "");
-  const def = WORKFLOW_DEFS[input.model];
+  const def = WORKFLOW_DEFS[model];
   const aspect =
     ASPECT_RATIOS.find((a) => a.id === input.aspectRatio) ?? ASPECT_RATIOS[0];
   const styled = applyStylePreset(
@@ -37,7 +41,7 @@ export async function queueComfyGeneration(
     input.stylePreset,
   );
   const seed = input.seed ?? Math.floor(Math.random() * 2 ** 31);
-  const workflow = buildComfyPrompt(input.model, {
+  const workflow = buildComfyPrompt(model, {
     prompt: styled.prompt,
     negativePrompt: styled.negative,
     seed,
